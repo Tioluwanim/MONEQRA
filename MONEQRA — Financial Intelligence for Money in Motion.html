@@ -1,0 +1,139 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>MONEQRA — Financial Intelligence for Money in Motion</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700;800&family=Gilda+Display&display=swap" rel="stylesheet">
+<style>
+:root{--ivory:#f6efe3;--ink:#12203a;--mut:#5b6478;--cob:#2250e6;--em:#12805c;--ver:#d9411e;--amb:#d89114;--unk:#8b8f9a;--ease:cubic-bezier(.65,0,.35,1);--out:cubic-bezier(.16,1,.3,1);--pad:clamp(20px,8vw,150px);--card:#fffaf1;box-sizing:border-box}
+*{box-sizing:border-box;margin:0;padding:0}html{background:var(--ivory);scroll-behavior:smooth}
+body{font-family:Urbanist,system-ui,sans-serif;color:var(--ink);background:var(--ivory);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+button{font:inherit;background:none;border:0;color:inherit;cursor:pointer}
+nav{position:fixed;top:0;left:0;right:0;height:70px;padding:0 var(--pad);display:flex;align-items:center;justify-content:space-between;z-index:60;color:#fff;border-bottom:1px solid rgba(255,255,255,.25);transition:.5s}
+nav.s{background:rgba(246,239,227,.88);backdrop-filter:blur(14px);color:var(--ink);border-color:rgba(18,32,58,.1)}
+.logo{font-weight:700;letter-spacing:.2em;font-size:19px;text-decoration:none;color:inherit}nav .c{display:flex;gap:34px;font-size:14px}nav a{color:inherit;text-decoration:none}
+.sim{display:flex;align-items:center;gap:8px;border:1.5px solid var(--amb);color:var(--amb);background:rgba(216,145,20,.12);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700;letter-spacing:.08em}
+.sim i{width:8px;height:8px;border-radius:50%;background:var(--amb);animation:bl 1.4s infinite}@keyframes bl{50%{opacity:.2}}
+#hero{position:relative;height:100vh;min-height:680px;overflow:hidden;background:#0d1a33}
+.sl{position:absolute;inset:0;overflow:hidden}.bg{position:absolute;inset:-3%;transform:scale(1.04)}
+.tt{position:absolute;left:5vw;top:calc(74px + 6vh);font-weight:700;text-transform:uppercase;line-height:.92;font-size:8.2vw;white-space:nowrap}
+.tt .w{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.06em}
+.tt .w span{display:inline-block;transform:translateY(105%);transition:transform 1.15s var(--out);background:linear-gradient(180deg,rgba(255,255,255,.97),rgba(255,255,255,.86) 36%,rgba(255,255,255,.14));-webkit-background-clip:text;background-clip:text;color:transparent}
+.in .tt .w span{transform:none}
+.mist{position:absolute;top:0;bottom:0;width:34vw;margin-left:-17vw;background:radial-gradient(closest-side,rgba(246,239,227,.7),transparent);filter:blur(10px);opacity:0;z-index:5;pointer-events:none}
+#fade{position:absolute;left:0;right:0;bottom:0;height:40%;z-index:8;background:linear-gradient(rgba(246,239,227,0),rgba(246,239,227,.5) 50%,rgba(246,239,227,.93) 85%,#f6efe3);pointer-events:none}
+#rail{position:absolute;inset:0;z-index:9;pointer-events:none}
+.th{position:absolute;border-radius:50%;border:3px solid rgba(255,255,255,.9);pointer-events:auto;display:grid;place-items:center;color:#fff;font-weight:700;font-size:12px;letter-spacing:.06em;box-shadow:0 10px 26px rgba(0,0,0,.3);transform:scale(0);transition:top .9s var(--ease),left .9s var(--ease),width .9s var(--ease),height .9s var(--ease),transform .5s}
+.on .th{transform:scale(1)}.th.a:after{content:"";position:absolute;inset:-11px;border-radius:50%;border:3px solid rgba(255,255,255,.5)}
+.rg{position:absolute;border:1.5px solid rgba(255,255,255,.4);border-radius:50%;transition:all .9s var(--ease);opacity:0}.on .rg{opacity:1}
+#con{position:absolute;height:3px;background:#fff;border-radius:3px;transform-origin:right;transition:transform .5s var(--out),top .9s var(--ease),left .9s var(--ease)}
+#cap{position:absolute;display:flex;gap:14px;align-items:center;justify-content:flex-end;color:#fff;transition:top .9s var(--ease)}
+#cap .bar{width:3px;background:#fff;transform-origin:top;transition:transform .6s var(--out)}
+#cap .tx{clip-path:inset(0 100% 0 0);transition:clip-path .9s var(--out)}#cap h3{font-weight:300;font-size:clamp(24px,2.6vw,38px)}#cap p{font-size:clamp(12px,1vw,14px);opacity:.88;max-width:250px;margin-top:6px}
+.hid #con{transform:scaleX(0)}.hid #cap .bar{transform:scaleY(0)}.hid #cap .tx{clip-path:inset(0 100% 0 0)}#cap.show .tx{clip-path:inset(0)}
+#sb{position:absolute;left:50%;bottom:calc(18vh + 2px);width:min(920px,100vw - 40px);transform:translate(-50%,30px);height:90px;border-radius:26px;background:rgba(255,250,241,.95);box-shadow:0 18px 60px rgba(18,32,58,.25);z-index:12;display:flex;align-items:center;padding:0 12px;gap:4px;opacity:0;transition:all 1s var(--out)}
+.on #sb{opacity:1;transform:translate(-50%,0)}
+.f{flex:1;height:72px;border-radius:14px;padding:0 14px;display:flex;flex-direction:column;justify-content:center;text-align:left;position:relative}.f:hover{background:#fff;box-shadow:0 8px 24px rgba(18,32,58,.12)}
+.f small{font-size:12px;color:var(--mut)}.f select{font:inherit;font-size:19px;font-weight:500;border:0;background:none;color:var(--ink);appearance:none;width:100%;outline:0}
+.send{background:var(--ink);color:#fff;border-radius:12px;padding:0 20px;height:48px;font-weight:600;transition:transform .3s}.send:hover{transform:scale(1.05)}
+section{padding:70px var(--pad) 10px}.sec{margin-top:-14vh;position:relative;z-index:15}.sec~section{margin-top:0}
+h2{font-family:'Gilda Display',serif;font-weight:400;font-size:clamp(28px,2.6vw,40px)}.sub{color:var(--mut);margin:6px 0 26px;font-size:15px;max-width:640px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(14px,2vw,26px)}.g3{grid-template-columns:repeat(3,1fr)}
+.card{background:var(--card);border-radius:16px;padding:20px;box-shadow:0 12px 30px rgba(18,32,58,.09);opacity:0;transform:translateY(36px);transition:opacity .8s var(--out),transform .8s var(--out),box-shadow .4s}
+.card.v{opacity:1;transform:none}.card.v:hover{transform:translateY(-5px);box-shadow:0 20px 44px rgba(18,32,58,.16)}
+.k{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);display:flex;justify-content:space-between;align-items:center}
+.val{font-size:clamp(24px,2.2vw,32px);font-weight:700;margin:10px 0 4px;font-variant-numeric:tabular-nums}.hint{font-size:12.5px;color:var(--mut)}
+.b{font-size:10.5px;font-weight:700;letter-spacing:.07em;border-radius:6px;padding:3px 7px;text-transform:uppercase;white-space:nowrap}
+.confirmed{color:var(--em);background:rgba(18,128,92,.12)}.pending{color:#a8690a;background:rgba(216,145,20,.18)}.unknown{color:#555a66;background:repeating-linear-gradient(45deg,#e4e2dc,#e4e2dc 4px,#ecebe6 4px,#ecebe6 8px)}.estimated{color:var(--cob);background:rgba(34,80,230,.1);border:1px dashed var(--cob)}
+.v-confirmed{color:var(--em)}.v-pending{color:#a8690a}.v-unknown{color:var(--unk)}.v-estimated{color:var(--cob)}
+.sev{border-left:5px solid var(--ver);cursor:pointer}.sev.m{border-color:var(--amb)}.sev.l{border-color:var(--unk)}
+.sev h3{font-size:18px;margin:8px 0 4px}.row{display:flex;justify-content:space-between;font-size:13px;margin-top:8px;color:var(--mut)}
+#leg{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+.ph2{display:flex;gap:10px;flex-wrap:wrap}.prov{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:12px;padding:10px 14px;box-shadow:0 6px 18px rgba(18,32,58,.07);font-size:14px}.dot{width:10px;height:10px;border-radius:50%}
+#dt{position:fixed;inset:0;z-index:80;background:var(--ivory);overflow:auto;opacity:0;pointer-events:none;transition:opacity .5s,transform .6s var(--out);transform:translateY(24px)}#dt.o{opacity:1;pointer-events:auto;transform:none}
+#dt .in2{padding:100px var(--pad) 80px}.cl{border:1.5px solid var(--ink);border-radius:20px;padding:6px 18px}.cl:hover{background:var(--ink);color:#fff}
+.tl{border-left:2px solid #d9cfbd;margin:20px 0 20px 8px;padding-left:22px}.tl div{position:relative;margin-bottom:16px;font-size:14px}.tl div:before{content:"";position:absolute;left:-29px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--c,var(--cob));border:2px solid var(--ivory)}.tl small{color:var(--mut);display:block}
+table{width:100%;border-collapse:collapse;font-size:13.5px;background:var(--card);border-radius:14px;overflow:hidden}th,td{text-align:left;padding:11px 14px;border-bottom:1px solid #ece3d2}th{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--mut)}
+.two{display:grid;grid-template-columns:1.3fr 1fr;gap:30px}
+#gr{background:var(--card);border-radius:18px;box-shadow:0 12px 30px rgba(18,32,58,.09);padding:10px}#gr svg{width:100%;height:auto;display:block}
+.nd{cursor:pointer;transition:opacity .3s}.ed{transition:opacity .3s}
+.sc{background:var(--card);border-radius:18px;padding:24px;box-shadow:0 12px 30px rgba(18,32,58,.09)}
+input[type=range]{width:100%;accent-color:var(--cob);margin:10px 0 18px}.sc .big{font-size:34px;font-weight:700}
+.bar2{height:22px;border-radius:6px;display:flex;overflow:hidden;margin:10px 0}.bar2 i{display:block;height:100%;transition:width .5s var(--out)}
+.ex{background:#fff;border-left:4px solid var(--cob);border-radius:8px;padding:12px 16px;font-size:14px;line-height:1.55;margin-top:16px}
+footer{padding:60px var(--pad);color:var(--mut);font-size:13px}
+@media(max-width:1000px){nav .c{display:none}.grid{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:1fr}.two{grid-template-columns:1fr}}
+@media(max-width:640px){.tt{font-size:13vw;white-space:normal;max-width:84vw}#cap,#con{display:none}#sb{height:auto;flex-wrap:wrap;bottom:14vh;padding:10px}.f{flex:1 1 45%;height:60px}.send{width:100%}.sec{margin-top:-6vh}.grid{grid-template-columns:1fr}}
+</style></head><body>
+<nav id="nav"><a class="logo" href="#">MONEQRA</a><div class="c"><a href="#overview">Overview</a><a href="#incidents">Incidents</a><a href="#deps">Dependencies</a><a href="#impact">Impact & Scenarios</a></div><span class="sim"><i></i>SIMULATION MODE</span></nav>
+<header id="hero"><div id="stack"></div><div class="mist" id="mist"></div><div id="fade"></div>
+<div id="rail"><i class="rg" id="r1"></i><i class="rg" id="r2"></i><i id="con"></i><div id="cap"><div class="bar"></div><div class="tx"><h3></h3><p></p></div></div></div>
+<div id="sb"><label class="f"><small>Provider</small><select id="sp"></select></label><label class="f"><small>Settlement delay</small><select id="sd"><option value="6">+6 hours</option><option value="24" selected>+24 hours</option><option value="48">+48 hours</option></select></label><label class="f"><small>Mode</small><select><option>Simulated events</option></select></label><button class="send" id="run">Run scenario →</button></div></header>
+<section class="sec" id="overview"><h2>Business Overview</h2><p class="sub">Ade Stores · financial state as MONEQRA understands it. Confirmed money is never mixed with expected money.</p>
+<div id="leg"></div><div class="grid" id="kpi"></div><h2 style="font-size:24px;margin:36px 0 14px">Provider health</h2><div class="ph2" id="prov"></div></section>
+<section id="incidents"><h2>Incident Intelligence</h2><p class="sub">A timeout is not proof of failure. Open an incident to see evidence, timeline and affected transactions.</p><div class="grid g3" id="inc"></div></section>
+<section id="deps"><h2>Dependency Intelligence</h2><p class="sub">Which businesses lean on which providers. Hover a node to trace exposure; red edges carry unresolved value.</p><div id="gr"></div></section>
+<section id="impact"><h2>Financial Impact & Scenarios</h2><p class="sub">Math first. Every figure below is computed deterministically in integer kobo; the explanation only restates the result.</p><div class="two"><div class="sc"><div class="k">Settlement delay <b id="dl">24h</b></div><input type="range" min="0" max="72" step="6" value="24" id="rg"><div class="k">Projected liquidity <span class="b estimated">estimated</span></div><div class="big" id="liq"></div><div class="bar2" id="bar"></div><div class="hint" id="sf"></div><div class="ex" id="ex"></div></div>
+<div><h3 style="margin-bottom:12px">Alternative decisions</h3><table id="alt"></table></div></div></section>
+<footer>MONEQRA · Math first. AI explains the result. · All data on this page is simulated mock data (integer kobo). No actions are executed from this interface.</footer>
+<div id="dt"><div class="in2"><button class="cl" onclick="closeD()">← Back to dashboard</button><div id="dc"></div></div></div>
+<script>
+const $=s=>document.querySelector(s);
+const N=k=>'₦'+(Math.round(k/100)).toLocaleString('en-NG');
+const L={confirmed:'Confirmed',pending:'Pending',unknown:'Unknown',estimated:'Estimated'};
+const B=t=>`<span class="b ${t}">${L[t]}</span>`;
+const bal=50000000,inc=20000000,unres=10000000,exp=15000000; // kobo
+const KP=[['Confirmed balance',bal,'confirmed','Verified against bank data'],['Expected incoming',inc,'pending','Awaiting provider settlement'],['Unresolved exposure',unres,'unknown','12 transactions, status undetermined'],['Expected expenses',exp,'estimated','Forecast, next 7 days']];
+const PR=[['Paylane','#12805c','Healthy',99.2],['Flutterpay','#d89114','Degraded',91.4],['NibssRail','#d9411e','Incident',62.8],['Koboway','#12805c','Healthy',98.7]];
+const IN=[{id:'INC-2041',p:'NibssRail',t:'Gateway timeouts on card debits',sev:'Critical',c:'',amt:7200000,n:8,st:'unknown',tx:[['TX-88121',1500000,'Timeout','unknown'],['TX-88127',900000,'Timeout','unknown'],['TX-88140',2100000,'Inconsistent record','unknown'],['TX-88153',2700000,'Timeout','pending']],tl:[['08:12','First provider timeout','var(--amb)'],['08:31','Timeouts exceed 5% threshold','var(--ver)'],['09:05','Provider query sent; no definitive answer','var(--ver)'],['09:40','Escalated for review','var(--cob)']],ex:'₦72,000 across 8 transactions is unresolved with NibssRail. Bank data has not yet confirmed or denied debits, so these are not treated as failed.'},
+{id:'INC-2039',p:'Flutterpay',t:'Delayed settlement batch',sev:'Moderate',c:'m',amt:2000000,n:3,st:'pending',tx:[['TX-87802',800000,'Awaiting settlement','pending'],['TX-87811',700000,'Awaiting settlement','pending'],['TX-87820',500000,'Awaiting settlement','pending']],tl:[['06:00','Settlement window opened','var(--cob)'],['10:00','Batch overdue by 4h','var(--amb)']],ex:'₦20,000 is pending settlement and counts as expected, not received.'},
+{id:'INC-2036',p:'NibssRail',t:'Duplicate callback detected',sev:'Low',c:'l',amt:800000,n:1,st:'estimated',tx:[['TX-87455',800000,'Duplicate callback (idempotency hit)','estimated']],tl:[['Yesterday','Duplicate webhook rejected','var(--em)']],ex:'Idempotency prevented a double credit. Impact estimated at ₦8,000 until reconciled.'}];
+// observer
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.style.transitionDelay=e.target.dataset.i*80+'ms';e.target.classList.add('v');io.unobserve(e.target)}}),{threshold:.12});
+const mk=(el,items)=>items.forEach((h,i)=>{const d=document.createElement('div');d.className='card'+(h.cls||'');d.dataset.i=i%4;d.innerHTML=h.h;if(h.fn)d.onclick=h.fn;el.appendChild(d);io.observe(d)});
+$('#leg').innerHTML=['confirmed','pending','unknown','estimated'].map(B).join('')+'<span class="hint" style="align-self:center">← value status legend</span>';
+mk($('#kpi'),KP.map(k=>({h:`<div class="k">${k[0]}${B(k[2])}</div><div class="val v-${k[2]}">${N(k[1])}</div><div class="hint">${k[3]}</div>`})));
+$('#prov').innerHTML=PR.map(p=>`<div class="prov"><i class="dot" style="background:${p[1]}"></i><b>${p[0]}</b> ${p[2]} · ${p[3]}% success</div>`).join('');
+$('#sp').innerHTML=PR.map(p=>`<option>${p[0]}</option>`).join('');
+mk($('#inc'),IN.map(x=>({cls:' sev '+x.c,fn:()=>openD(x),h:`<div class="k">${x.id}<span>${x.sev}</span></div><h3>${x.t}</h3><div class="hint">${x.p}</div><div class="val v-${x.st}">${N(x.amt)}</div><div class="row"><span>${x.n} transactions</span>${B(x.st)}</div>`})));
+function openD(x){$('#dc').innerHTML=`<div class="k" style="margin-top:30px">${x.id} · ${x.p} · ${x.sev}</div><h2 style="margin:8px 0">${x.t}</h2><div class="val v-${x.st}">${N(x.amt)} ${B(x.st)}</div><div class="ex">${x.ex}</div>
+<h3 style="margin-top:28px">Timeline</h3><div class="tl">${x.tl.map(t=>`<div style="--c:${t[2]}">${t[1]}<small>${t[0]}</small></div>`).join('')}</div><h3 style="margin-bottom:12px">Affected transactions</h3><table><tr><th>ID</th><th>Amount</th><th>Evidence</th><th>Status</th></tr>${x.tx.map(t=>`<tr><td>${t[0]}</td><td class="v-${t[3]}"><b>${N(t[1])}</b></td><td>${t[2]}</td><td>${B(t[3])}</td></tr>`).join('')}</table><p class="hint" style="margin-top:14px">Recommended next step: query provider, check bank data, then reconcile. No automatic reversal is performed.</p>`;
+$('#dt').classList.add('o');$('#nav').style.display='none';document.body.style.overflow='hidden'}
+function closeD(){$('#dt').classList.remove('o');$('#nav').style.display='';document.body.style.overflow=''}
+// graph
+(function(){const P=[['Paylane',90,60,'#12805c'],['Flutterpay',90,170,'#d89114'],['NibssRail',90,280,'#d9411e']],Bz=[['Ade Stores',560,50],['Tunde Foods',560,170],['Kemi Tech',560,290]];
+const E=[[0,0,0],[1,0,0],[2,0,1],[1,1,0],[2,1,1],[2,2,1],[0,2,0]];let s='<svg viewBox="0 0 700 340"><defs><pattern id="gd" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#e2d8c6"/></pattern></defs><rect width="700" height="340" fill="url(#gd)"/>';
+E.forEach((e,i)=>{const a=P[e[0]],b=Bz[e[1]];s+=`<path class="ed" data-a="${e[0]}" data-b="${e[1]}" d="M${a[1]+60} ${a[2]} C300 ${a[2]},340 ${b[2]},${b[1]-70} ${b[2]}" fill="none" stroke="${e[2]?'#d9411e':'#9aa3b5'}" stroke-width="${e[2]?3:2}" ${e[2]?'':'stroke-dasharray="5 4"'}/>`});
+P.forEach((p,i)=>s+=`<g class="nd" data-p="${i}"><rect x="${p[1]-60}" y="${p[2]-22}" width="120" height="44" rx="12" fill="${p[3]}"/><text x="${p[1]}" y="${p[2]+5}" text-anchor="middle" fill="#fff" font-weight="700" font-size="14">${p[0]}</text></g>`);
+Bz.forEach((p,i)=>s+=`<g class="nd" data-b="${i}"><rect x="${p[1]-70}" y="${p[2]-22}" width="140" height="44" rx="12" fill="#12203a"/><text x="${p[1]}" y="${p[2]+5}" text-anchor="middle" fill="#fff" font-weight="600" font-size="14">${p[0]}</text></g>`);
+s+='<text x="20" y="328" font-size="11" fill="#5b6478">Solid red = unresolved exposure · dashed = healthy dependency · seeded mock relationships</text></svg>';$('#gr').innerHTML=s;
+const ed=[...document.querySelectorAll('.ed')];document.querySelectorAll('.nd').forEach(n=>{n.onmouseenter=()=>ed.forEach(e=>e.style.opacity=(n.dataset.p!=null&&e.dataset.a==n.dataset.p)||(n.dataset.b!=null&&e.dataset.b==n.dataset.b)?1:.1);n.onmouseleave=()=>ed.forEach(e=>e.style.opacity=1)})})();
+// scenario (integer kobo)
+function calc(h){const arrives=h<=24,recov=h<=24?.6:.3;const incIn=arrives?inc:0,recd=Math.round(unres*recov);const pos=bal+incIn,short=Math.max(0,exp-pos);return{pos,incIn,recd,short,left:pos-exp}}
+function draw(){const h=+$('#rg').value;$('#dl').textContent=h+'h';const r=calc(h);$('#liq').textContent=N(r.left);$('#liq').className='big '+(r.short?'v-estimated':'');
+const tot=bal+inc+unres;$('#bar').innerHTML=`<i style="width:${bal/tot*100}%;background:var(--em)"></i><i style="width:${inc/tot*100}%;background:${r.incIn?'var(--amb)':'#ddd'}"></i><i style="width:${unres/tot*100}%;background:var(--unk)"></i>`;
+$('#sf').textContent=r.short?`Potential shortfall: ${N(r.short)} (estimated)`:'No shortfall projected under these assumptions.';
+$('#ex').innerHTML=`<b>Assumptions:</b> expected income of ${N(inc)} ${r.incIn?'arrives within the window':'is excluded because settlement slips past 24h'}; the ${N(unres)} of unresolved value is not counted as cash. Under these assumptions liquidity after expenses is ${N(r.left)}. This is an estimate, not a guaranteed outcome.`;
+const rows=[['Wait for settlement',calc(h).left,'estimated'],['Reconcile NibssRail first',calc(h).left+Math.round(unres*.5),'estimated'],['Delay supplier payment 24h',calc(h).left+exp,'estimated']];
+$('#alt').innerHTML='<tr><th>Decision</th><th>Projected liquidity</th><th>Status</th></tr>'+rows.map(x=>`<tr><td>${x[0]}</td><td class="v-estimated"><b>${N(x[1])}</b></td><td>${B(x[2])}</td></tr>`).join('')}
+$('#rg').oninput=draw;draw();$('#run').onclick=()=>{$('#rg').value=$('#sd').value;draw();document.querySelector('#impact').scrollIntoView()};
+// hero
+const S=[{bg:'linear-gradient(135deg,#0d1a33,#1b3a8c 70%,#2250e6)',t:['MONEY IN MOTION'],sz:8.4,h:'Business overview',d:'Confirmed, pending, unknown and estimated money — never blurred together.',th:'#2250e6',ic:'OVR'},
+{bg:'linear-gradient(135deg,#2a1226,#8d2a1c 65%,#d9411e)',t:['UNDERSTAND','THE EXPOSURE'],sz:7.2,h:'Incident intelligence',d:'A timeout is not proof of failure. See the evidence behind every unresolved payment.',th:'#d9411e',ic:'INC'},
+{bg:'linear-gradient(135deg,#0b2a2a,#0f6b52 65%,#2aa57f)',t:['MATH FIRST.','AI EXPLAINS.'],sz:8.4,h:'Impact & scenarios',d:'Deterministic integer-kobo calculations drive every forecast and decision.',th:'#12805c',ic:'SIM'}];
+const stack=$('#stack'),hero=$('#hero'),cap=$('#cap'),con=$('#con'),r1=$('#r1'),r2=$('#r2');
+S.forEach((s,i)=>{const d=document.createElement('div');d.className='sl';d.style.zIndex=i?1:2;if(i)d.style.visibility='hidden';
+d.innerHTML=`<div class="bg" style="background:${s.bg}"></div><svg style="position:absolute;inset:0;width:100%;height:100%;opacity:.12" preserveAspectRatio="none" viewBox="0 0 100 60"><path d="M0 50 L15 42 L30 46 L45 30 L60 34 L75 18 L100 22" fill="none" stroke="#fff" stroke-width=".4"/></svg><div class="tt" style="font-size:${s.sz}vw">${s.t.map(l=>l.split(' ').map((w,j)=>`<span class="w"><span style="transition-delay:${j*90}ms">${w}</span></span>`).join(' ')).join('<br>')}</div>`;stack.appendChild(d)});
+const sl=[...document.querySelectorAll('.sl')],order=[2,1,0],ths=S.map((s,i)=>{const t=document.createElement('button');t.className='th';t.style.background=s.th;t.textContent=s.ic;t.onclick=()=>go(i);$('#rail').appendChild(t);return t});
+let cu=0,busy=0,timer;
+function lay(){const W=innerWidth,H=hero.offsetHeight,A=Math.min(180,Math.max(90,W*.11)),I=Math.min(88,Math.max(46,W*.054)),g=Math.max(8,W*.009),cx=W*.855;let y=74+H*.08,ca=0;
+order.forEach(i=>{const a=i==cu,z=a?A:I,t=ths[i];t.style.width=t.style.height=z+'px';t.style.left=cx-z/2+'px';t.style.top=y+'px';t.classList.toggle('a',a);if(a)ca=y+z/2;y+=z+g});
+[[r1,5],[r2,10.8]].forEach(([e,k])=>{const r=A/2+W*k/100;e.style.width=e.style.height=2*r+'px';e.style.left=cx-r+'px';e.style.top=ca-r+'px'});
+const cl=Math.max(40,W*.047),l0=cx-A/2-W*.008-cl,bh=Math.max(84,W*.065);con.style.width=cl+'px';con.style.left=l0+'px';con.style.top=ca-1.5+'px';cap.style.right=W-l0+16+'px';cap.style.top=ca-bh/2+'px';cap.style.height=bh+'px';cap.querySelector('.bar').style.height=bh+'px'}
+const setCap=i=>{cap.querySelector('h3').textContent=S[i].h;cap.querySelector('p').textContent=S[i].d};
+function go(n){if(busy||n==cu)return;busy=1;const o=sl[cu],nw=sl[n];cu=n;hero.classList.add('hid');cap.classList.remove('show');lay();nw.style.visibility='visible';nw.style.zIndex=3;const m=$('#mist'),t0=performance.now();
+(function f(now){const t=Math.min(1,(now-t0)/1250),p=t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2,a=p*135;nw.style.webkitMaskImage=nw.style.maskImage=`linear-gradient(to left,#000 ${a-35}%,rgba(0,0,0,.6) ${a-17.5}%,transparent ${a}%)`;m.style.left=100-a+17.5+'%';m.style.opacity=Math.min(.95,Math.sin(Math.PI*t));
+nw.firstChild.style.transform=`scale(${1.12-.08*p})`;o.firstChild.style.transform=`scale(${1.04+.05*p})`;
+if(t<1)requestAnimationFrame(f);else{o.style.visibility='hidden';nw.style.webkitMaskImage=nw.style.maskImage='none';nw.style.zIndex=2;m.style.opacity=0;busy=0}})(t0);
+setTimeout(()=>{setCap(n);hero.classList.remove('hid');cap.classList.add('show')},650);sl.forEach((s,i)=>s.classList.toggle('in',i==n));rt()}
+function rt(){clearInterval(timer);timer=setInterval(()=>go((cu+1)%3),5200)}
+setCap(0);lay();addEventListener('resize',lay);setTimeout(()=>{sl[0].classList.add('in');hero.classList.add('on');setTimeout(()=>cap.classList.add('show'),650)},250);rt();
+addEventListener('scroll',()=>{$('#nav').classList.toggle('s',scrollY>.3*innerHeight);$('#stack').style.transform=`translateY(${.4*scrollY}px)`;$('#rail').style.opacity=Math.max(0,1-scrollY/(innerHeight*.5))});
+</script></body></html>
