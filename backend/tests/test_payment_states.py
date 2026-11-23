@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from dataclasses import FrozenInstanceError
 
 import pytest
 
@@ -10,9 +11,12 @@ from app.domain.payment_states import (
     InvalidTransition,
     ALLOWED_TRANSITIONS,
     allowed_next_states,
+    apply_event,
     is_terminal,
     is_unresolved,
+    is_retry_eligible,
     PaymentState,
+    PaymentEventResult,
     TERMINAL_STATES,
     UNKNOWN_EXIT_EVIDENCE,
     transition,
@@ -183,3 +187,127 @@ def test_unknown_exit_evidence_and_terminal_states():
         EvidenceKind.MANUAL_REVIEW,
     }
     assert TERMINAL_STATES == {PaymentState.FAILED, PaymentState.REVERSED}
+
+
+VALID_PAYMENT_TRANSITIONS = [
+    (PaymentState.CREATED, PaymentState.PENDING),
+    (PaymentState.CREATED, PaymentState.FAILED),
+    (PaymentState.CREATED, PaymentState.UNKNOWN),
+    (PaymentState.PENDING, PaymentState.SUCCEEDED),
+    (PaymentState.PENDING, PaymentState.FAILED),
+    (PaymentState.PENDING, PaymentState.UNKNOWN),
+    (PaymentState.UNKNOWN, PaymentState.SUCCEEDED),
+    (PaymentState.UNKNOWN, PaymentState.FAILED),
+    (PaymentState.SUCCEEDED, PaymentState.SETTLED),
+    (PaymentState.SUCCEEDED, PaymentState.REVERSED),
+    (PaymentState.SETTLED, PaymentState.REVERSED),
+]
+
+
+@pytest.mark.parametrize("from_state,to_state", VALID_PAYMENT_TRANSITIONS)
+def test_apply_event_accepts_every_valid_transition(from_state, to_state):
+    evidence = None
+    if from_state is PaymentState.UNKNOWN:
+        evidence = EvidenceKind.PROVIDER_STATUS_CHECK
+
+    result = apply_event(from_state, to_state, evidence)
+
+    assert result.applied
+    assert result.new_state is to_state
+    assert result.reason == "event applied"
+
+
+INVALID_PAYMENT_TRANSITIONS = [
+    (from_state, to_state)
+    for from_state in PaymentState
+    for to_state in PaymentState
+    if (from_state, to_state) not in VALID_PAYMENT_TRANSITIONS
+    and from_state is not to_state
+]
+
+
+@pytest.mark.parametrize("from_state,to_state", INVALID_PAYMENT_TRANSITIONS)
+def test_apply_event_returns_reason_for_every_invalid_transition(from_state, to_state):
+    result = apply_event(from_state, to_state)
+
+    assert not result.applied
+    assert result.new_state is from_state
+    assert "transition" in result.reason
+    assert "not allowed" in result.reason
+
+
+@pytest.mark.parametrize("state", list(PaymentState))
+def test_apply_event_duplicate_state_is_harmless_no_op(state):
+    result = apply_event(state, state)
+
+    assert not result.applied
+    assert result.new_state is state
+    assert "duplicate" in result.reason
+
+
+@pytest.mark.parametrize(
+    "evidence_kind",
+    [
+        EvidenceKind.PROVIDER_STATUS_CHECK,
+        EvidenceKind.PROVIDER_WEBHOOK,
+        EvidenceKind.MANUAL_REVIEW,
+    ],
+)
+@pytest.mark.parametrize("destination", [PaymentState.SUCCEEDED, PaymentState.FAILED])
+def test_apply_event_unknown_exit_accepts_each_valid_evidence_kind(
+    evidence_kind,
+    destination,
+):
+    evidence = Evidence(
+        kind=evidence_kind,
+        source="provider" if evidence_kind is not EvidenceKind.MANUAL_REVIEW else "operator",
+        reference="evidence-123",
+        observed_at=datetime(2026, 11, 20, 14, 0, tzinfo=timezone.utc),
+    )
+
+    result = apply_event(PaymentState.UNKNOWN, destination, evidence)
+
+    assert result.applied
+    assert result.new_state is destination
+
+
+@pytest.mark.parametrize("destination", [PaymentState.SUCCEEDED, PaymentState.FAILED])
+def test_apply_event_unknown_exit_requires_evidence(destination):
+    result = apply_event(PaymentState.UNKNOWN, destination)
+
+    assert not result.applied
+    assert result.new_state is PaymentState.UNKNOWN
+    assert "requires valid evidence" in result.reason
+
+
+@pytest.mark.parametrize("destination", [PaymentState.SUCCEEDED, PaymentState.FAILED])
+def test_apply_event_timeout_is_explicitly_rejected_as_evidence(destination):
+    result = apply_event(
+        PaymentState.UNKNOWN,
+        destination,
+        EvidenceKind.TIMEOUT_SIGNAL,
+    )
+
+    assert not result.applied
+    assert result.new_state is PaymentState.UNKNOWN
+    assert "not evidence" in result.reason
+
+
+@pytest.mark.parametrize("state", list(PaymentState))
+def test_retry_eligibility_is_true_only_for_verified_failed(state):
+    if state is PaymentState.FAILED:
+        assert is_retry_eligible(state, verified_failed=True)
+        assert not is_retry_eligible(state, verified_failed=False)
+    else:
+        assert not is_retry_eligible(state, verified_failed=True)
+
+
+def test_payment_event_result_is_frozen():
+    result = PaymentEventResult(
+        applied=True,
+        new_state=PaymentState.PENDING,
+        reason="event applied",
+    )
+
+    with pytest.raises(FrozenInstanceError):
+        result.reason = "changed"

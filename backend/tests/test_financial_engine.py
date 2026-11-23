@@ -7,7 +7,9 @@ from app.domain.financial_engine import (
     PaymentView,
     available_funds,
     classify_payments,
+    demo_scenarios,
     obligations_due_by,
+    scenario,
     worst_case_position,
 )
 from app.domain.money import Money
@@ -67,3 +69,84 @@ def test_available_funds_obligations_and_worst_case():
     assert available == Money(15000)
     assert obligations_due == Money(7000)
     assert worst_case_position(available, obligations_due) == Money(8000)
+
+
+ADE_DEADLINE = datetime(2026, 11, 20, 17, 0, tzinfo=UTC)
+
+
+def test_ade_stores_three_demo_scenarios_in_naira():
+    payments = [
+        *(PaymentView(str(i), Money(3000000), PaymentState.SETTLED, ADE_DEADLINE)
+          for i in range(28)),
+        *(PaymentView(str(i), Money(3000000), PaymentState.UNKNOWN)
+          for i in range(28, 40)),
+    ]
+    buckets = classify_payments(payments, ADE_DEADLINE)
+    obligations = [
+        Obligation("supplier", "Supplier obligation", Money(110000000), ADE_DEADLINE),
+    ]
+
+    reports = demo_scenarios(
+        buckets,
+        Money(15000000),
+        obligations,
+        ADE_DEADLINE,
+        6000,
+    )
+
+    assert buckets.settled_by_deadline == Money(84000000)
+    assert buckets.unresolved == Money(36000000)
+    assert reports.no_recovery.scenario_position == Money(-11000000)
+    assert reports.assumed_recovery.scenario_recovery == Money(21600000)
+    assert reports.assumed_recovery.scenario_position == Money(10600000)
+    assert reports.full_recovery.scenario_recovery == Money(36000000)
+    assert reports.full_recovery.scenario_position == Money(25000000)
+
+
+def test_scenario_labels_recovery_probability_as_assumption():
+    buckets = classify_payments(
+        [PaymentView("unknown", Money(12345), PaymentState.UNKNOWN)],
+        DEADLINE,
+    )
+    report = scenario(
+        buckets,
+        Money(10000),
+        [],
+        DEADLINE,
+        6000,
+    )
+
+    assert report.scenario_recovery == Money(7407)
+    assert report.assumptions[0].name == "recovery_probability"
+    assert "assumption" in report.assumptions[0].description
+    assert report.limitations
+
+
+def test_scenario_rejects_mixed_currencies():
+    buckets = classify_payments(
+        [PaymentView("unknown", Money(10000, "NGN"), PaymentState.UNKNOWN)],
+        DEADLINE,
+    )
+
+    with pytest.raises(ValueError, match="mixed currencies"):
+        scenario(
+            buckets,
+            Money(10000, "USD"),
+            [],
+            DEADLINE,
+            5000,
+        )
+
+
+@pytest.mark.parametrize("probability", [-1, 10001, True, 6000.0])
+def test_scenario_rejects_invalid_probability(probability):
+    buckets = classify_payments([], DEADLINE)
+
+    with pytest.raises((TypeError, ValueError)):
+        scenario(
+            buckets,
+            Money(10000),
+            [],
+            DEADLINE,
+            probability,
+        )

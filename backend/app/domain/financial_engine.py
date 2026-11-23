@@ -4,7 +4,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Iterable
 
-from app.domain.money import Money, floor_to_whole_kobo
+from app.domain.money import (
+    Money,
+    basis_points_to_fraction,
+    floor_to_whole_kobo,
+)
 from app.domain.payment_states import PaymentState
 
 
@@ -69,6 +73,25 @@ class LiquidityReport:
     steps: tuple[CalcStep, ...]
     as_of: datetime
     deadline: datetime
+
+
+@dataclass(frozen=True)
+class ScenarioReport:
+    available_funds: Money
+    obligations_due: Money
+    worst_case_position: Money
+    scenario_recovery: Money
+    scenario_position: Money
+    inputs: tuple[str, ...]
+    assumptions: tuple[Assumption, ...]
+    limitations: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class DemoScenarios:
+    no_recovery: ScenarioReport
+    assumed_recovery: ScenarioReport
+    full_recovery: ScenarioReport
 
 
 def _aware(value: datetime, name: str) -> None:
@@ -164,3 +187,92 @@ def worst_case_position(available: Money, obligations_due: Money) -> Money:
     if available.currency != obligations_due.currency:
         raise ValueError("mixed currencies are not allowed")
     return available - obligations_due
+
+
+def scenario(
+    buckets: Buckets,
+    opening_funds: Money,
+    obligations: Iterable[Obligation],
+    deadline: datetime,
+    recovery_probability_bps: int,
+) -> ScenarioReport:
+    """Calculate one deadline recovery scenario using integer basis points."""
+    if isinstance(recovery_probability_bps, bool) or not isinstance(recovery_probability_bps, int):
+        raise TypeError("recovery probability must be an integer in basis points")
+    if not 0 <= recovery_probability_bps <= 10_000:
+        raise ValueError("basis points must be between 0 and 10000")
+
+    available = available_funds(opening_funds, buckets)
+    due = obligations_due_by(obligations, deadline)
+    worst = worst_case_position(available, due)
+    probability = basis_points_to_fraction(recovery_probability_bps)
+    recovery = floor_to_whole_kobo(
+        buckets.unresolved.scaled(probability),
+        buckets.unresolved.currency,
+    )
+
+    inputs = (
+        f"opening_funds={opening_funds.minor} {opening_funds.currency}",
+        f"settled_by_deadline={buckets.settled_by_deadline.minor} {buckets.settled_by_deadline.currency}",
+        f"unresolved={buckets.unresolved.minor} {buckets.unresolved.currency}",
+        f"obligations_due={due.minor} {due.currency}",
+        f"deadline={deadline.isoformat()}",
+    )
+    assumptions = (
+        Assumption(
+            name="recovery_probability",
+            description="assumption: probability that unresolved payments settle by the deadline",
+            value=recovery_probability_bps,
+        ),
+    )
+    limitations = (
+        "Recovery is an assumption, not a guarantee.",
+        "A succeeded payment is not counted until it is settled.",
+        "Pending and unknown payments are not confirmed cash.",
+        "Settlement after the deadline is not included in available funds.",
+    )
+
+    return ScenarioReport(
+        available_funds=available,
+        obligations_due=due,
+        worst_case_position=worst,
+        scenario_recovery=recovery,
+        scenario_position=worst + recovery,
+        inputs=inputs,
+        assumptions=assumptions,
+        limitations=limitations,
+    )
+
+
+def demo_scenarios(
+    buckets: Buckets,
+    opening_funds: Money,
+    obligations: Iterable[Obligation],
+    deadline: datetime,
+    recovery_probability_bps: int,
+) -> DemoScenarios:
+    """Produce no-recovery, stated-probability and full-recovery scenarios."""
+    obligations = tuple(obligations)
+    return DemoScenarios(
+        no_recovery=scenario(
+            buckets,
+            opening_funds,
+            obligations,
+            deadline,
+            0,
+        ),
+        assumed_recovery=scenario(
+            buckets,
+            opening_funds,
+            obligations,
+            deadline,
+            recovery_probability_bps,
+        ),
+        full_recovery=scenario(
+            buckets,
+            opening_funds,
+            obligations,
+            deadline,
+            10_000,
+        ),
+    )

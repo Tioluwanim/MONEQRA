@@ -79,6 +79,82 @@ class Evidence:
             raise ValueError("source must not be empty")
         if not isinstance(self.reference, str) or not self.reference.strip():
             raise ValueError("reference must not be empty")
+
+
+@dataclass(frozen=True)
+class PaymentEventResult:
+    """Result of attempting to apply one normalised payment event."""
+
+    applied: bool
+    new_state: PaymentState
+    reason: str
+
+
+def apply_event(
+    current_state: PaymentState,
+    incoming_state: PaymentState,
+    evidence: Evidence | EvidenceKind | None = None,
+) -> PaymentEventResult:
+    """Apply an event when possible, otherwise return a retained rejection result."""
+    if not isinstance(current_state, PaymentState):
+        raise TypeError("current_state must be a PaymentState")
+    if not isinstance(incoming_state, PaymentState):
+        raise TypeError("incoming_state must be a PaymentState")
+
+    if current_state is incoming_state:
+        return PaymentEventResult(
+            applied=False,
+            new_state=current_state,
+            reason="duplicate event for the same payment state",
+        )
+
+    if incoming_state not in allowed_next_states(current_state):
+        return PaymentEventResult(
+            applied=False,
+            new_state=current_state,
+            reason=f"transition {current_state.value} -> {incoming_state.value} is not allowed",
+        )
+
+    if current_state is PaymentState.UNKNOWN:
+        if evidence is None:
+            return PaymentEventResult(
+                applied=False,
+                new_state=current_state,
+                reason="unknown payment outcome requires valid evidence",
+            )
+
+        evidence_kind = evidence.kind if isinstance(evidence, Evidence) else evidence
+        if not isinstance(evidence_kind, EvidenceKind):
+            return PaymentEventResult(
+                applied=False,
+                new_state=current_state,
+                reason="evidence must be provider status check, provider webhook, or manual review",
+            )
+        if evidence_kind not in UNKNOWN_EXIT_EVIDENCE:
+            return PaymentEventResult(
+                applied=False,
+                new_state=current_state,
+                reason=f"{evidence_kind.value} is not evidence of an unknown payment outcome",
+            )
+
+    return PaymentEventResult(
+        applied=True,
+        new_state=incoming_state,
+        reason="event applied",
+    )
+
+
+def is_retry_eligible(
+    state: PaymentState,
+    *,
+    verified_failed: bool = False,
+) -> bool:
+    """Return whether a payment is safely retry-eligible."""
+    if not isinstance(state, PaymentState):
+        raise TypeError("state must be a PaymentState")
+    return state is PaymentState.FAILED and verified_failed
+
+
 def transition(
     from_state: PaymentState,
     to_state: PaymentState,

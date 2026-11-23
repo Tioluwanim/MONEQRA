@@ -4,7 +4,19 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.db.base import Base
-from app.db import Organisation, InfraNode, Payment, PaymentEvent  # noqa: F401
+from app.db import (  # noqa: F401
+    Approval,
+    AuditEvent,
+    DependencyEdge,
+    Incident,
+    IncidentTransition,
+    InfraNode,
+    Obligation,
+    Organisation,
+    Payment,
+    PaymentEvent,
+    Recommendation,
+)
 
 config = context.config
 
