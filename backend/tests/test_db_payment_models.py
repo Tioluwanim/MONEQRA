@@ -303,6 +303,8 @@ def test_audit_event_is_append_only_and_hash_chained(db_session: Session):
         actor_reference="operator-1",
         action="approve_recommendation",
         entity_type="recommendation",
+        previous_hash=None,
+        sequence_number=1,
         hash="abc123",
         payload={"decision": "approve"},
         occurred_at=datetime.now(timezone.utc),

@@ -242,6 +242,8 @@ class AuditEvent(Base):
     action: Mapped[str] = mapped_column(String, nullable=False)
     entity_type: Mapped[str] = mapped_column(String, nullable=False)
     entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    previous_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
     hash: Mapped[str] = mapped_column(String, nullable=False)
     payload: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(

@@ -1,0 +1,874 @@
+openapi: 3.1.0
+info:
+  title: MONEQRA API
+  version: "1.0"
+  description: |
+    Payment incident intelligence API. MONEQRA never moves money.
+    All money values are integer kobo. All probabilities are integer basis points.
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+paths:
+  /health:
+    get:
+      summary: Service health
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /v1/events/payments:
+    post:
+      summary: Ingest an idempotent payment event
+      x-roles: [viewer, operator, approver, admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentEventInput"
+      responses:
+        "200":
+          description: Event ingested, duplicated or rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventIngestionResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/events/signals:
+    post:
+      summary: Ingest a provider health signal
+      x-roles: [viewer, operator, approver, admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProviderSignalInput"
+      responses:
+        "200":
+          description: Signal ingested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventIngestionResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/payments:
+    get:
+      summary: List payments
+      x-roles: [viewer, operator, approver, admin]
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Payment list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentList"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/payments/{id}:
+    get:
+      summary: Get a payment and event history
+      x-roles: [viewer, operator, approver, admin]
+      parameters:
+        - $ref: "#/components/parameters/PaymentId"
+      responses:
+        "200":
+          description: Payment detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/payments/{id}/verify:
+    post:
+      summary: Perform a read-only provider status check
+      x-roles: [operator, approver, admin]
+      parameters:
+        - $ref: "#/components/parameters/PaymentId"
+      responses:
+        "200":
+          description: Status check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentVerificationResult"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/incidents:
+    get:
+      summary: List incidents
+      x-roles: [viewer, operator, approver, admin]
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: Incident list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentList"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/incidents/{id}:
+    get:
+      summary: Get incident timeline
+      x-roles: [viewer, operator, approver, admin]
+      parameters:
+        - $ref: "#/components/parameters/IncidentId"
+      responses:
+        "200":
+          description: Incident detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncidentDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/dependency-graph:
+    get:
+      summary: Get the dependency graph
+      x-roles: [viewer, operator, approver, admin]
+      responses:
+        "200":
+          description: Dependency graph
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DependencyGraph"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/obligations:
+    get:
+      summary: List obligations
+      x-roles: [viewer, operator, approver, admin]
+      responses:
+        "200":
+          description: Obligations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ObligationList"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/financial-impact:
+    get:
+      summary: Calculate liquidity impact for a deadline
+      x-roles: [viewer, operator, approver, admin]
+      parameters:
+        - name: deadline
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: recovery_probability_bps
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 10000
+            default: 6000
+      responses:
+        "200":
+          description: Liquidity report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiquidityReport"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/scenarios:
+    post:
+      summary: Run a recovery scenario
+      x-roles: [operator, approver, admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScenarioRequest"
+      responses:
+        "200":
+          description: Scenario result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoScenarios"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/recommendations:
+    get:
+      summary: List recommendations
+      x-roles: [viewer, operator, approver, admin]
+      responses:
+        "200":
+          description: Recommendations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendationList"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/recommendations/{id}/decision:
+    post:
+      summary: Approve or reject a recommendation
+      x-roles: [approver, admin]
+      parameters:
+        - $ref: "#/components/parameters/RecommendationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendationDecision"
+      responses:
+        "200":
+          description: Decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Approval"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/audit:
+    get:
+      summary: Read append-only audit records
+      x-roles: [viewer, operator, approver, admin]
+      responses:
+        "200":
+          description: Audit records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditList"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/simulator/seed:
+    post:
+      summary: Seed or reset the Ade Stores simulation
+      x-roles: [operator, admin]
+      x-simulation-only: true
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulatorSeedRequest"
+      responses:
+        "200":
+          description: Demo seeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulatorSeedResult"
+        "403":
+          $ref: "#/components/responses/SimulationDisabled"
+        default:
+          $ref: "#/components/responses/Error"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+    PaymentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IncidentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RecommendationId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Error:
+      description: API error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Insufficient role
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    SimulationDisabled:
+      description: Simulation mode is disabled
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      required: [error, request_id]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                [INVALID_REQUEST, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND,
+                 DUPLICATE_EVENT, INVALID_TRANSITION, EVIDENCE_REQUIRED,
+                 CROSS_TENANT, MIXED_CURRENCY, SIMULATION_DISABLED,
+                 FORGED_SIGNATURE, STALE_SIGNATURE, REPLAYED_EVENT,
+                 PROVIDER_CHECK_FAILED, INTERNAL_ERROR]
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+        request_id:
+          type: string
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [healthy]
+        simulation_mode:
+          type: boolean
+    PaymentEventInput:
+      type: object
+      description: |
+        Canonical payment event shape. Legacy simulator fields are preserved by
+        replay for raw_payload. amount_kobo is required and no float money is accepted.
+      required: [provider_event_id, provider_node_id, provider_reference, occurred_at, normalised_state, raw_status, evidence_kind]
+      properties:
+        provider_event_id:
+          type: string
+        provider_node_id:
+          type: string
+          format: uuid
+        provider_reference:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        received_at:
+          type: string
+          format: date-time
+        raw_status:
+          type: string
+        normalised_state:
+          type: string
+          enum: [created, pending, unknown, succeeded, settled, failed, reversed]
+        evidence_kind:
+          type: string
+          enum: [provider_status_check, provider_webhook, manual_review]
+        evidence_source:
+          type: string
+        evidence_reference:
+          type: string
+        raw_payload:
+          type: object
+          additionalProperties: true
+        simulated:
+          type: boolean
+          default: true
+    ProviderSignalInput:
+      type: object
+      required: [provider_node_id, provider_event_id, occurred_at, status, raw_payload]
+      properties:
+        provider_node_id:
+          type: string
+          format: uuid
+        provider_event_id:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+        latency_ms:
+          type: integer
+          minimum: 0
+        raw_payload:
+          type: object
+          additionalProperties: true
+        simulated:
+          type: boolean
+          default: true
+    EventIngestionResult:
+      type: object
+      required: [event_id, duplicate, applied, reason]
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        duplicate:
+          type: boolean
+        applied:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+        new_state:
+          type: string
+          enum: [created, pending, unknown, succeeded, settled, failed, reversed]
+          nullable: true
+    Payment:
+      type: object
+      required: [id, org_id, provider_node_id, provider_reference, amount_kobo, currency, state, simulated]
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        provider_node_id:
+          type: string
+          format: uuid
+        provider_reference:
+          type: string
+        amount_kobo:
+          type: integer
+          minimum: 1
+        currency:
+          type: string
+          pattern: "^.{3}$"
+        state:
+          type: string
+          enum: [created, pending, unknown, succeeded, settled, failed, reversed]
+        settled_at:
+          type: string
+          format: date-time
+          nullable: true
+        retry_eligible:
+          type: boolean
+        simulated:
+          type: boolean
+    PaymentList:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Payment"
+        next_cursor:
+          type: string
+          nullable: true
+    PaymentDetail:
+      allOf:
+        - $ref: "#/components/schemas/Payment"
+        - type: object
+          required: [events]
+          properties:
+            events:
+              type: array
+              items:
+                $ref: "#/components/schemas/PaymentEventInput"
+    PaymentVerificationResult:
+      type: object
+      required: [payment_id, evidence_created, applied, new_state, message]
+      properties:
+        payment_id:
+          type: string
+          format: uuid
+        evidence_created:
+          type: boolean
+        applied:
+          type: boolean
+        new_state:
+          type: string
+          enum: [unknown, succeeded, failed, pending]
+        message:
+          type: string
+    Incident:
+      type: object
+      required: [id, org_id, subject_node_id, state, severity, opened_at, simulated]
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        subject_node_id:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum: [suspected, confirmed, monitoring, recovering, resolved]
+        severity:
+          type: string
+        opened_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+        simulated:
+          type: boolean
+    IncidentList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Incident"
+    IncidentDetail:
+      allOf:
+        - $ref: "#/components/schemas/Incident"
+        - type: object
+          required: [transitions]
+          properties:
+            transitions:
+              type: array
+              items:
+                $ref: "#/components/schemas/IncidentTransition"
+    IncidentTransition:
+      type: object
+      required: [from_state, to_state, occurred_at, evidence]
+      properties:
+        from_state:
+          type: string
+          enum: [suspected, confirmed, monitoring, recovering, resolved]
+        to_state:
+          type: string
+          enum: [suspected, confirmed, monitoring, recovering, resolved]
+        occurred_at:
+          type: string
+          format: date-time
+        evidence:
+          type: object
+          additionalProperties: true
+    DependencyGraph:
+      type: object
+      required: [nodes, edges]
+      properties:
+        nodes:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        edges:
+          type: array
+          items:
+            type: object
+            required: [from_node_id, to_node_id, status, source_note]
+            properties:
+              from_node_id:
+                type: string
+                format: uuid
+              to_node_id:
+                type: string
+                format: uuid
+              status:
+                type: string
+                enum: [known, unknown]
+              source_note:
+                type: string
+    Obligation:
+      type: object
+      required: [id, org_id, label, amount_kobo, currency, due_at, status, simulated]
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        label:
+          type: string
+        amount_kobo:
+          type: integer
+          minimum: 1
+        currency:
+          type: string
+          pattern: "^.{3}$"
+        due_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+        simulated:
+          type: boolean
+    ObligationList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Obligation"
+    LiquidityReport:
+      type: object
+      required:
+        [available_funds_kobo, obligations_due_kobo, worst_case_position_kobo,
+         scenario_recovery_kobo, scenario_position_kobo, recovery_probability_bps,
+         inputs, assumptions, limitations, simulated]
+      properties:
+        available_funds_kobo:
+          type: integer
+        obligations_due_kobo:
+          type: integer
+        worst_case_position_kobo:
+          type: integer
+        scenario_recovery_kobo:
+          type: integer
+        scenario_position_kobo:
+          type: integer
+        recovery_probability_bps:
+          type: integer
+          minimum: 0
+          maximum: 10000
+        inputs:
+          type: array
+          items:
+            type: string
+        assumptions:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        limitations:
+          type: array
+          items:
+            type: string
+        simulated:
+          type: boolean
+    ScenarioRequest:
+      type: object
+      required: [deadline, recovery_probability_bps]
+      properties:
+        deadline:
+          type: string
+          format: date-time
+        recovery_probability_bps:
+          type: integer
+          minimum: 0
+          maximum: 10000
+    ScenarioReport:
+      type: object
+      required:
+        [available_funds_kobo, obligations_due_kobo, worst_case_position_kobo,
+         scenario_recovery_kobo, scenario_position_kobo, inputs, assumptions, limitations]
+      properties:
+        available_funds_kobo:
+          type: integer
+        obligations_due_kobo:
+          type: integer
+        worst_case_position_kobo:
+          type: integer
+        scenario_recovery_kobo:
+          type: integer
+        scenario_position_kobo:
+          type: integer
+        inputs:
+          type: array
+          items:
+            type: string
+        assumptions:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        limitations:
+          type: array
+          items:
+            type: string
+    DemoScenarios:
+      type: object
+      required: [no_recovery, assumed_recovery, full_recovery]
+      properties:
+        no_recovery:
+          $ref: "#/components/schemas/ScenarioReport"
+        assumed_recovery:
+          $ref: "#/components/schemas/ScenarioReport"
+        full_recovery:
+          $ref: "#/components/schemas/ScenarioReport"
+    Recommendation:
+      type: object
+      required: [id, org_id, incident_id, action, tier, reasons, evidence, limitations, approval_required, simulated]
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        incident_id:
+          type: string
+          format: uuid
+        action:
+          type: string
+        tier:
+          type: integer
+          enum: [1, 2]
+        reasons:
+          type: array
+          items:
+            type: string
+        evidence:
+          type: array
+          items:
+            type: string
+        limitations:
+          type: array
+          items:
+            type: string
+        approval_required:
+          type: boolean
+        simulated:
+          type: boolean
+    RecommendationList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Recommendation"
+    RecommendationDecision:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [approve, reject]
+        reason:
+          type: string
+    Approval:
+      type: object
+      required: [id, org_id, recommendation_id, approver_reference, decision, decided_at, simulated]
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        recommendation_id:
+          type: string
+          format: uuid
+        approver_reference:
+          type: string
+        decision:
+          type: string
+          enum: [approve, reject]
+        reason:
+          type: string
+          nullable: true
+        decided_at:
+          type: string
+          format: date-time
+        simulated:
+          type: boolean
+    AuditRecord:
+      type: object
+      required: [id, org_id, actor, action, entity, occurred_at, previous_hash, hash, simulated]
+      properties:
+        id:
+          type: string
+          format: uuid
+        org_id:
+          type: string
+          format: uuid
+        actor:
+          type: string
+        action:
+          type: string
+        entity:
+          type: object
+          additionalProperties: true
+        occurred_at:
+          type: string
+          format: date-time
+        previous_hash:
+          type: string
+          nullable: true
+        hash:
+          type: string
+        simulated:
+          type: boolean
+    AuditList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditRecord"
+    SimulatorSeedRequest:
+      type: object
+      properties:
+        branch:
+          type: string
+          enum: [independent, shared]
+        reset:
+          type: boolean
+          default: true
+    SimulatorSeedResult:
+      type: object
+      required: [scenario, branch, simulated, opening_available_kobo, settled_kobo, unknown_kobo, obligation_kobo]
+      properties:
+        scenario:
+          type: string
+          enum: [ade_stores]
+        branch:
+          type: string
+          enum: [independent, shared]
+        simulated:
+          type: boolean
+          const: true
+        opening_available_kobo:
+          type: integer
+          const: 15000000
+        settled_kobo:
+          type: integer
+          const: 84000000
+        unknown_kobo:
+          type: integer
+          const: 36000000
+        obligation_kobo:
+          type: integer
+          const: 110000000
