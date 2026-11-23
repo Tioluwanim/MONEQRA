@@ -1,0 +1,127 @@
+{
+  "schema_version": "1.0",
+  "scenario": "ade_stores",
+  "at_deadline": {
+    "as_of": "2026-11-19T17:00:00.000Z",
+    "affected_count": 40,
+    "affected_value_kobo": 120000000,
+    "settled_count": 28,
+    "settled_value_kobo": 84000000,
+    "unknown_count": 12,
+    "unknown_value_kobo": 36000000,
+    "available_funds_kobo": 99000000,
+    "obligation_kobo": 110000000,
+    "position_kobo": -11000000
+  },
+  "liquidity_scenarios": {
+    "no_recovery": {
+      "unknown_settled_kobo": 0,
+      "position_kobo": -11000000
+    },
+    "assumed_recovery": {
+      "pct": 60,
+      "unknown_settled_kobo": 21600000,
+      "position_kobo": 10600000
+    },
+    "full_recovery": {
+      "unknown_settled_kobo": 36000000,
+      "position_kobo": 25000000
+    }
+  },
+  "after_recovery": {
+    "as_of": "2026-11-19T19:30:00.000Z",
+    "unknown_count": 0,
+    "resolved_succeeded_count": 12,
+    "resolved_failed_count": 0,
+    "settled_value_after_deadline_kobo": 36000000,
+    "note": "These settle AFTER the 5pm deadline: eventual success is not cash before the deadline."
+  },
+  "duplicates": {
+    "normal_redeliveries": 8,
+    "incident_webhook_redeliveries": 8,
+    "stale_pending_webhooks": 4,
+    "settlement_redeliveries": 5,
+    "late_redundant_confirmations": 5,
+    "provider_events_that_must_be_ignored_as_duplicates": 21,
+    "ignored_for_invalid_transition": 4,
+    "ignored_as_no_state_change": 5
+  },
+  "retries": {
+    "total": 11,
+    "must_all_be_blocked": true
+  },
+  "detection": {
+    "ground_truth_incident_start": "2026-11-19T14:10:00.000Z",
+    "upstream_root_cause_start": "2026-11-19T14:03:00.000Z",
+    "transient_blip": {
+      "provider_a_at": "2026-11-19T13:12:00.000Z",
+      "provider_b_at_shared_branch": "2026-11-19T13:41:00.000Z",
+      "note": "One-minute blips. A detector must NOT open an incident for these."
+    },
+    "no_incident_before": "2026-11-19T14:10:00.000Z",
+    "suspected_expected_between": [
+      "2026-11-19T14:11:00.000Z",
+      "2026-11-19T14:20:00.000Z"
+    ],
+    "confirmed_expected_by": "2026-11-19T14:30:00.000Z",
+    "resolved_expected_after": "2026-11-19T17:35:00.000Z"
+  },
+  "branches": {
+    "independent": {
+      "provider_b_healthy": true,
+      "provider_b_independent_of_failure": true,
+      "expected_recommendation": "route_new_checkouts_to_provider_b_and_keep_verifying_unknown"
+    },
+    "shared": {
+      "provider_b_healthy": false,
+      "provider_b_independent_of_failure": false,
+      "expected_recommendation": "withhold_switch_and_offer_extension_request"
+    }
+  },
+  "affected_refs": {
+    "settled": [
+      "ADE-ORD-000102",
+      "ADE-ORD-000103",
+      "ADE-ORD-000106",
+      "ADE-ORD-000108",
+      "ADE-ORD-000109",
+      "ADE-ORD-000111",
+      "ADE-ORD-000112",
+      "ADE-ORD-000116",
+      "ADE-ORD-000117",
+      "ADE-ORD-000118",
+      "ADE-ORD-000119",
+      "ADE-ORD-000120",
+      "ADE-ORD-000121",
+      "ADE-ORD-000122",
+      "ADE-ORD-000123",
+      "ADE-ORD-000124",
+      "ADE-ORD-000125",
+      "ADE-ORD-000126",
+      "ADE-ORD-000127",
+      "ADE-ORD-000128",
+      "ADE-ORD-000129",
+      "ADE-ORD-000131",
+      "ADE-ORD-000133",
+      "ADE-ORD-000134",
+      "ADE-ORD-000135",
+      "ADE-ORD-000137",
+      "ADE-ORD-000138",
+      "ADE-ORD-000139"
+    ],
+    "unknown": [
+      "ADE-ORD-000101",
+      "ADE-ORD-000104",
+      "ADE-ORD-000105",
+      "ADE-ORD-000107",
+      "ADE-ORD-000110",
+      "ADE-ORD-000113",
+      "ADE-ORD-000114",
+      "ADE-ORD-000115",
+      "ADE-ORD-000130",
+      "ADE-ORD-000132",
+      "ADE-ORD-000136",
+      "ADE-ORD-000140"
+    ]
+  }
+}
