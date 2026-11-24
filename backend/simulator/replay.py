@@ -82,7 +82,16 @@ def load_sorted_events(folder: Path) -> List[Dict[str, Any]]:
 
 
 def build_payload(event: Dict[str, Any]) -> Dict[str, Any]:
-    return event
+    provider_status = str(event.get("status", "unknown"))
+    return {
+        "provider_key": "provider-a",
+        "provider_event_id": str(event.get("event_id") or event.get("transaction_id") or "unknown"),
+        "occurred_at": extract_timestamp(event) or "1970-01-01T00:00:00Z",
+        "status": provider_status,
+        "latency_ms": event.get("latency_ms"),
+        "raw_payload": event,
+        "simulated": True,
+    }
 
 
 def post_event(endpoint: str, payload: Dict[str, Any], timeout: float = 5.0) -> str:
@@ -101,7 +110,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Replay Ade Stores events into MONEQRA.")
     parser.add_argument("--folder", type=Path, default=Path("."))
     parser.add_argument("--mode", choices=["dry-run", "http"], default="dry-run")
-    parser.add_argument("--endpoint", default="http://localhost:8000/api/v1/events")
+    parser.add_argument("--endpoint", default="http://localhost:8000/v1/events/signals")
     parser.add_argument("--delay", type=float, default=0.05)
     args = parser.parse_args()
 

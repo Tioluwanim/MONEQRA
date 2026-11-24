@@ -59,14 +59,20 @@ class PaymentEventInput(SchemaModel):
     @field_validator("evidence_kind")
     @classmethod
     def evidence_kind(cls, value: str) -> str:
-        allowed = {"provider_status_check", "provider_webhook", "manual_review"}
+        allowed = {
+            "provider_status_check",
+            "provider_webhook",
+            "manual_review",
+            "timeout_signal",
+        }
         if value not in allowed:
             raise ValueError("invalid evidence kind")
         return value
 
 
 class ProviderSignalInput(SchemaModel):
-    provider_node_id: UUID
+    provider_node_id: UUID | None = None
+    provider_key: str | None = None
     provider_event_id: str = Field(min_length=1)
     occurred_at: datetime
     status: str = Field(min_length=1)

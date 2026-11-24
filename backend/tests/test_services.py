@@ -9,6 +9,7 @@ from app.db.base import Base
 from app.db.models import Organisation
 from app.db.payments import InfraNode, Payment, PaymentEvent
 from app.db.demo_models import Recommendation
+from app.adapters.provider import FakeProviderAdapter, ProviderError
 from app.domain.financial_engine import ScenarioReport
 from app.domain.dependency import IndependenceVerdict
 from app.domain.money import Money
@@ -16,6 +17,7 @@ from app.security.auth import Principal, Role
 from app.services.payments import ingest_payment_event
 from app.services.financial import independence_recommendation
 from app.services.approvals import decide_recommendation
+from app.services.verification import verify_payment
 
 
 UTC = timezone.utc
@@ -118,6 +120,28 @@ def test_timeout_leaves_unknown_and_is_not_retry_eligible(session):
 
     assert result["applied"] is False
     assert session.get(Payment, payment.id).state == "unknown"
+
+
+def test_provider_verification_error_leaves_payment_unknown(session):
+    org, provider, payment, principal = seed(session)
+    result = verify_payment(
+        session,
+        principal,
+        payment_id=payment.id,
+        adapter=FakeProviderAdapter(),
+    )
+    assert result["evidence_created"] is False
+    assert result["applied"] is False
+    assert result["new_state"] == "unknown"
+
+
+def test_fake_provider_enforces_allowlist_and_rate_limit():
+    with pytest.raises(ValueError, match="allow-listed"):
+        FakeProviderAdapter(host="https://untrusted.example")
+
+    adapter = FakeProviderAdapter(min_interval_seconds=60)
+    with pytest.raises(ProviderError, match="unavailable"):
+        adapter.check_payment_status("unknown-reference")
 
 
 def test_cross_tenant_ingest_is_denied(session):
