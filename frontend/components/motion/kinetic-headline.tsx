@@ -54,9 +54,11 @@ export function KineticHeadline({
         ))
       : <span data-motion-piece="" className="block">{children}</span>;
 
+  const accessibleText = text ?? (typeof children === "string" ? children : undefined);
+
   return (
     <div ref={containerRef} className={className}>
-      <Tag id={id} className="font-heading">{pieces}</Tag>
+      <Tag id={id} aria-label={accessibleText} className="font-heading">{pieces}</Tag>
     </div>
   );
 }

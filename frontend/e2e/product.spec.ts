@@ -18,7 +18,7 @@ test("offline mocks remain available", async ({ page }) => {
 
 test("landing connects the story, demo and real workspace", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("From payment incident to business impact");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveAccessibleName("From payment incident to business impact.");
   await expect(page.getByRole("link", { name: /Enter Workspace/i }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /Open Interactive Demo/i })).toBeVisible();
 

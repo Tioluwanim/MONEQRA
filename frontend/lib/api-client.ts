@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { apiUrl } from "./api";
+import { ensureMocksStarted } from "./mock-ready";
 
 export interface ApiErrorShape {
   error: { code: string; message: string; details?: Record<string, unknown> };
@@ -28,6 +29,7 @@ export async function apiRequest<T>(
   init?: RequestInit,
 ) {
   if (!credential) throw new MoneqraApiError(401, "Authentication required");
+  await ensureMocksStarted();
 
   const response = await fetch(`${apiUrl}${path}`, {
     ...init,

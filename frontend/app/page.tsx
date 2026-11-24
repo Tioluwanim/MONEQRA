@@ -16,7 +16,6 @@ import {
   GovernanceSection,
   ProblemSection,
   SignalRail,
-  TeamSection,
   TransactionSection,
 } from "@/components/site/story-sections";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
@@ -159,7 +158,6 @@ export default function Home() {
       <DecisionSection />
       <GovernanceSection />
       <FinalCtaSection />
-      <TeamSection />
       <SiteFooter />
     </main>
   );

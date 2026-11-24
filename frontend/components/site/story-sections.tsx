@@ -14,13 +14,11 @@ import {
   Wallet,
 } from "lucide-react";
 import { useMemo, useState, type CSSProperties } from "react";
-import Link from "next/link";
 import { formatKobo } from "@/lib/money";
 import { landingData } from "@/lib/landing-data";
 import { calculateLiquidity, deriveDemoRecommendation } from "@/lib/demo-finance";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { ApprovalMoment } from "@/components/motion";
-import { synforgeTeam } from "@/lib/team";
 import type { DemoRole } from "@/components/moneqra/types";
 import FinanceChart from "./finance-chart";
 import { DependencyVisual, type RouteRelationship } from "./dependency-visual";
@@ -34,7 +32,7 @@ export function SignalRail() {
     ["17:00", "SUPPLIER DEADLINE"],
   ];
   return (
-    <div className="relative z-10 border-y border-white/10 bg-[#08162f]/70 backdrop-blur-md">
+    <div className="relative z-10 overflow-hidden border-y border-white/10 bg-[#08162f]/70 backdrop-blur-md">
       <div className="marquee-track flex w-max py-3" style={{ "--marquee-duration": "28s" } as CSSProperties}>
         {[0, 1].map((copy) => (
           <div key={copy} className="flex shrink-0 items-center gap-8 pr-8" aria-hidden={copy === 1}>
@@ -416,6 +414,7 @@ export function FinancialSection() {
                   className="h-2 w-48 cursor-pointer accent-[var(--cobalt)] sm:w-64"
                   aria-label="Assumed recovery rate"
                   aria-valuetext={`${bps / 100}% assumed recovery`}
+                  suppressHydrationWarning
                 />
                 <span className="font-mono text-xs text-[var(--ink-muted)]">100%</span>
                 <output htmlFor="landing-recovery" className="numeric min-w-14 text-right text-sm font-bold text-[var(--cobalt)]">{bps / 100}%</output>
@@ -578,6 +577,7 @@ export function GovernanceSection() {
                 placeholder="Required only when rejecting"
                 disabled={!allowed}
                 className="mt-2 w-full rounded-lg border border-white/16 bg-[#0d1e3b] px-3 py-2.5 text-sm text-white placeholder:text-[#7f92b5] disabled:opacity-50"
+                suppressHydrationWarning
               />
               <div className="mt-5 flex flex-wrap gap-3">
                 <ActionButton tone="teal" disabled={!allowed} onClick={() => setDecision("approve")}>Approve decision</ActionButton>
@@ -632,34 +632,6 @@ export function FinalCtaSection() {
           </div>
           <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.14em] text-white/70">All data is simulated · MONEQRA never moves money</p>
         </Reveal>
-      </div>
-    </section>
-  );
-}
-
-export function TeamSection() {
-  return (
-    <section className="bg-[#fffaf1] py-20" aria-labelledby="team-heading">
-      <div className="section-shell">
-        <Reveal>
-          <Eyebrow className="text-[var(--cobalt)]">Built by</Eyebrow>
-          <h2 id="team-heading" className="mt-2 font-heading text-3xl text-[var(--ink)]">Team SYNFORGE</h2>
-        </Reveal>
-        <StaggerGroup className="mt-8 grid gap-4 sm:grid-cols-3">
-          {synforgeTeam.map((member) => (
-            <StaggerItem key={member.name}>
-              <article className="premium-card h-full p-5">
-                <div className="grid size-14 place-items-center rounded-full border border-[var(--ledger-rule-strong)] bg-white font-mono text-sm text-[var(--ink-muted)]">{member.initials}</div>
-                <h3 className="mt-4 font-heading text-xl text-[var(--ink)]">{member.name}</h3>
-                <p className="mt-1 text-sm text-[var(--ink-muted)]">{member.role}</p>
-              </article>
-            </StaggerItem>
-          ))}
-        </StaggerGroup>
-        <div className="mt-8 flex flex-wrap gap-5 text-sm">
-          <a href="https://github.com/Tioluwanim/MONEQRA" target="_blank" rel="noreferrer" className="text-[var(--cobalt)] underline underline-offset-4 hover:text-[var(--ink)]">Repository</a>
-          <Link href="/overview" className="text-[var(--cobalt)] underline underline-offset-4 hover:text-[var(--ink)]">Open the workspace</Link>
-        </div>
       </div>
     </section>
   );

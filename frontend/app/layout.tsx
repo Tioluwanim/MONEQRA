@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Gilda_Display, Urbanist, JetBrains_Mono } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Providers } from "@/lib/providers";
-import { MockProvider } from "@/mocks/provider";
 import "./globals.css";
 
 const gilda = Gilda_Display({
@@ -49,9 +48,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <Providers>
-          <MockProvider>
-            <TooltipProvider>{children}</TooltipProvider>
-          </MockProvider>
+          <TooltipProvider>{children}</TooltipProvider>
         </Providers>
       </body>
     </html>
