@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 @import "../styles/tokens.css";
 @import "../styles/motion-tokens.css";
+@import "../styles/marketing.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -48,6 +49,13 @@
   --color-amber: var(--amber);
   --color-unknown: var(--unknown);
   --color-vermilion: var(--vermilion);
+  --color-navyn: var(--navy-900);
+  --color-cobaltbright: var(--cobalt-bright);
+  --color-teal: var(--teal);
+  --color-tealbright: var(--teal-bright);
+  --color-violet: var(--violet);
+  --color-coral: var(--coral);
+  --color-ivory: var(--ivory);
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-md);

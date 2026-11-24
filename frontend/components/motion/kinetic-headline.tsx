@@ -13,6 +13,7 @@ export interface KineticHeadlineProps {
   split?: "line" | "word";
   className?: string;
   lines?: ReactNode[];
+  id?: string;
 }
 
 export function KineticHeadline({
@@ -22,6 +23,7 @@ export function KineticHeadline({
   split = "line",
   className,
   lines,
+  id,
 }: KineticHeadlineProps) {
   const reducedMotion = useReducedMotion();
   const containerRef = useGsapCleanup<HTMLDivElement>((ctx) => {
@@ -54,7 +56,7 @@ export function KineticHeadline({
 
   return (
     <div ref={containerRef} className={className}>
-      <Tag className="font-heading">{pieces}</Tag>
+      <Tag id={id} className="font-heading">{pieces}</Tag>
     </div>
   );
 }

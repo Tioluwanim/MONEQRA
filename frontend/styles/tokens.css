@@ -22,6 +22,30 @@
   --unknown-hatch:
     repeating-linear-gradient(135deg, rgb(139 143 154 / 16%) 0 4px, transparent 4px 8px);
   --estimated-outline: 1px dashed var(--cobalt);
+
+  /* ── MONEQRA experience palette ─────────────────────────────────
+     A composed sequence: midnight depth, warm ivory light, cobalt
+     intelligence, teal certainty, coral risk and violet nuance. */
+  --navy-950: #060f22;
+  --navy-900: #0a1730;
+  --navy-850: #0e1e3b;
+  --navy-800: #122b52;
+  --navy-700: #1c3b6b;
+  --cobalt-bright: #5b86ff;
+  --cobalt-soft: #dbe6ff;
+  --teal: #0f9d8a;
+  --teal-bright: #2ad4b6;
+  --teal-soft: #dcf8ef;
+  --coral: #f06a45;
+  --coral-soft: #ffe6dd;
+  --violet: #7c5cf6;
+  --violet-bright: #a78bfa;
+  --violet-soft: #eee9ff;
+  --ivory: #fffaf1;
+  --sky-soft: #eaf1ff;
+  --shadow-float: 0 24px 60px -24px rgb(9 23 48 / 35%), 0 8px 20px -12px rgb(9 23 48 / 25%);
+  --shadow-glow: 0 0 0 1px rgb(91 134 255 / 22%), 0 20px 60px -22px rgb(60 106 255 / 45%);
+  --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
 }
 .dark {
   --paper: #0d1930;
