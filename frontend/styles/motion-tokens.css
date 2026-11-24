@@ -1,0 +1,35 @@
+/*
+ * MONEQRA Motion Tokens
+ * ---------------------
+ * Extends the existing --motion-fast / --motion-base / --motion-instrument
+ * durations with easing curves, stagger values, and semantic aliases.
+ *
+ * "Ledger snap" – the sharp, authoritative click of a stamp on paper.
+ * "Settle"      – money arriving; a slow, confident deceleration.
+ */
+
+:root {
+  /* ── Durations (supplement existing tokens.css values) ──────────── */
+  --motion-snap: 100ms;        /* instant micro-interactions */
+  --motion-slow: 500ms;        /* large reveals, scenes */
+  --motion-scene: 800ms;       /* scroll-pinned storytelling beats */
+
+  /* ── Easings ────────────────────────────────────────────────────── */
+  --ease-ledger-snap: cubic-bezier(0.2, 0, 0, 1);    /* sharp in, dead stop */
+  --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);      /* slow decel, confident land */
+  --ease-default: cubic-bezier(0.25, 0.1, 0.25, 1);  /* general-purpose */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);             /* accelerate out of view */
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);            /* decelerate into view */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);  /* playful overshoot (buttons) */
+
+  /* ── Stagger ────────────────────────────────────────────────────── */
+  --stagger-fast: 40ms;
+  --stagger-base: 80ms;
+  --stagger-slow: 140ms;
+
+  /* ── Spring configs (for Motion / Framer Motion, as CSS custom props for reference) */
+  --spring-snap-stiffness: 500;
+  --spring-snap-damping: 30;
+  --spring-settle-stiffness: 120;
+  --spring-settle-damping: 20;
+}
