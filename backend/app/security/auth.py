@@ -29,7 +29,7 @@ class DemoAuth:
             raise ValueError("authentication secret is required")
         self.secret = secret
         self.ttl_seconds = ttl_seconds
-        demo_org_id = "00000000-0000-0000-0000-000000000001"
+        demo_org_id = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1"
         self.fixed_users = {
             "demo-viewer-key": Principal("demo-viewer", demo_org_id, Role.VIEWER),
             "demo-operator-key": Principal("demo-operator", demo_org_id, Role.OPERATOR),

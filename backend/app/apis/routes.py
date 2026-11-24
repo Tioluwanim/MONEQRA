@@ -10,6 +10,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.adapters.provider import FakeProviderAdapter
+from app.domain.dependency import IndependenceVerdict
+from app.domain.recommendation import RecommendationContext, recommend
 from app.db.demo_models import (
     Approval,
     AuditEvent,
@@ -17,7 +20,11 @@ from app.db.demo_models import (
     Incident,
     IncidentTransition,
     Obligation,
+    ProviderRequest,
+    ProviderSignal,
     Recommendation,
+    ScenarioRun,
+    FinancialSnapshot,
 )
 from app.db.models import Organisation
 from app.db.payments import InfraNode, Payment, PaymentEvent
@@ -50,16 +57,19 @@ from app.schemas import (
     SimulatorSeedResult,
 )
 from app.security.auth import DemoAuth, Principal, Role, require_role
+from app.security.audit import append_audit
 from app.security.simulation import require_simulation_mode
 from app.security.tenancy import org_scoped_query
 from app.services.approvals import decide_recommendation
 from app.services.financial import financial_impact
 from app.services.payments import ingest_payment_event
+from app.services.verification import verify_payment as verify_payment_service
 
 
 router = APIRouter()
 bearer = HTTPBearer(auto_error=False)
 demo_auth = DemoAuth(settings.token_secret or "demo-development-secret")
+fake_provider = FakeProviderAdapter()
 
 
 def principal(
@@ -92,11 +102,21 @@ def ingest_payment(
     session: Annotated[Session, Depends(db_session)],
 ) -> EventIngestionResult:
     require_role(current, {Role.VIEWER, Role.OPERATOR, Role.APPROVER, Role.ADMIN})
+    org_id = uuid.UUID(current.org_id)
+    payment = session.execute(
+        select(Payment).where(
+            Payment.org_id == org_id,
+            Payment.provider_reference == body.provider_reference,
+        )
+    ).scalar_one_or_none()
+    provider_node_id = body.provider_node_id
+    if payment is not None:
+        provider_node_id = payment.provider_node_id
     result = ingest_payment_event(
         session,
         current,
-        org_id=uuid.UUID(current.org_id),
-        provider_node_id=body.provider_node_id,
+        org_id=org_id,
+        provider_node_id=provider_node_id,
         provider_event_id=body.provider_event_id,
         provider_reference=body.provider_reference,
         occurred_at=body.occurred_at,
@@ -115,14 +135,67 @@ def ingest_payment(
 def ingest_signal(
     body: ProviderSignalInput,
     current: Annotated[Principal, Depends(principal)],
+    session: Annotated[Session, Depends(db_session)],
 ) -> EventIngestionResult:
     require_role(current, {Role.VIEWER, Role.OPERATOR, Role.APPROVER, Role.ADMIN})
+    org_id = uuid.UUID(current.org_id)
+    if body.provider_node_id is not None:
+        provider_node_id = body.provider_node_id
+    else:
+        provider_node = session.execute(
+            select(InfraNode).where(
+                InfraNode.org_id == org_id,
+                InfraNode.key == (body.provider_key or "provider-a"),
+            )
+        ).scalar_one_or_none()
+        if provider_node is None:
+            raise HTTPException(status_code=404, detail="provider node not found")
+        provider_node_id = provider_node.id
+    duplicate = session.execute(
+        select(ProviderSignal).where(
+            ProviderSignal.org_id == org_id,
+            ProviderSignal.provider_node_id == provider_node_id,
+            ProviderSignal.provider_event_id == body.provider_event_id,
+        )
+    ).scalar_one_or_none()
+    if duplicate is not None:
+        return EventIngestionResult(
+            event_id=duplicate.id,
+            duplicate=True,
+            applied=False,
+            reason="duplicate provider event",
+        )
+    signal = ProviderSignal(
+        id=uuid.uuid4(),
+        org_id=org_id,
+        provider_node_id=provider_node_id,
+        provider_event_id=body.provider_event_id,
+        occurred_at=body.occurred_at,
+        status=body.status,
+        latency_ms=body.latency_ms,
+        raw_payload=body.raw_payload,
+        simulated=body.simulated,
+    )
+    session.add(signal)
+    session.flush()
+    append_audit(
+        session,
+        principal_org_id=current.org_id,
+        org_id=org_id,
+        actor=current.user_id,
+        action="ingest_provider_signal",
+        entity_type="provider_signal",
+        entity_id=signal.id,
+        payload={"provider_event_id": body.provider_event_id, "status": body.status},
+        simulated=body.simulated,
+    )
+    session.commit()
     return EventIngestionResult(
-        event_id=uuid.uuid5(uuid.NAMESPACE_URL, body.provider_event_id),
+        event_id=signal.id,
         duplicate=False,
-        applied=False,
-        reason="provider_signals table is not implemented in the current MVP",
-        new_state=None,
+        applied=True,
+        reason=None,
+        new_state="unknown",
     )
 
 
@@ -209,12 +282,22 @@ def payment_detail(
 def verify_payment(
     payment_id: uuid.UUID,
     current: Annotated[Principal, Depends(principal)],
+    session: Annotated[Session, Depends(db_session)],
 ) -> PaymentVerificationResult:
-    require_role(current, {Role.OPERATOR, Role.APPROVER, Role.ADMIN})
-    raise HTTPException(
-        status_code=501,
-        detail="provider adapter verification is implemented in Stage 8",
-    )
+    try:
+        result = verify_payment_service(
+            session,
+            current,
+            payment_id=payment_id,
+            adapter=fake_provider,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return PaymentVerificationResult(**result)
 
 
 @router.get("/v1/incidents", response_model=IncidentListResponse)
@@ -385,7 +468,63 @@ def run_scenario(
     current: Annotated[Principal, Depends(principal)],
     session: Annotated[Session, Depends(db_session)],
 ):
-    raise HTTPException(status_code=501, detail="scenario route available after seed integration")
+    require_role(current, {Role.OPERATOR, Role.APPROVER, Role.ADMIN})
+    org_id = uuid.UUID(current.org_id)
+    reports = financial_impact(
+        session,
+        current,
+        org_id=org_id,
+        deadline=body.deadline,
+        recovery_probability_bps=body.recovery_probability_bps,
+    )
+
+    def serialize(report):
+        return {
+            "available_funds_kobo": report.available_funds.minor,
+            "obligations_due_kobo": report.obligations_due.minor,
+            "worst_case_position_kobo": report.worst_case_position.minor,
+            "scenario_recovery_kobo": report.scenario_recovery.minor,
+            "scenario_position_kobo": report.scenario_position.minor,
+            "inputs": list(report.inputs),
+            "assumptions": [
+                {"name": a.name, "description": a.description, "value": a.value}
+                for a in report.assumptions
+            ],
+            "limitations": list(report.limitations),
+        }
+
+    row = ScenarioRun(
+        id=uuid.uuid4(),
+        org_id=org_id,
+        deadline=body.deadline,
+        recovery_probability_bps=body.recovery_probability_bps,
+        inputs={"deadline": body.deadline.isoformat()},
+        result={
+            "no_recovery": serialize(reports.no_recovery),
+            "assumed_recovery": serialize(reports.assumed_recovery),
+            "full_recovery": serialize(reports.full_recovery),
+        },
+        simulated=True,
+    )
+    session.add(row)
+    session.flush()
+    append_audit(
+        session,
+        principal_org_id=current.org_id,
+        org_id=org_id,
+        actor=current.user_id,
+        action="run_scenario",
+        entity_type="scenario_run",
+        entity_id=row.id,
+        payload={"recovery_probability_bps": body.recovery_probability_bps},
+        simulated=True,
+    )
+    session.commit()
+    return {
+        "no_recovery": serialize(reports.no_recovery),
+        "assumed_recovery": serialize(reports.assumed_recovery),
+        "full_recovery": serialize(reports.full_recovery),
+    }
 
 
 @router.get("/v1/recommendations", response_model=RecommendationListResponse)
@@ -517,6 +656,7 @@ def seed_simulator(
     ).scalar_one_or_none()
     if provider_a is None:
         provider_a = InfraNode(
+            id=uuid.uuid4(),
             org_id=org_id,
             kind="provider",
             key="provider-a",
@@ -531,6 +671,7 @@ def seed_simulator(
     ).scalar_one_or_none()
     if provider_b is None:
         provider_b = InfraNode(
+            id=uuid.uuid4(),
             org_id=org_id,
             kind="provider",
             key="provider-b",
@@ -539,16 +680,45 @@ def seed_simulator(
         session.add(provider_b)
     session.flush()
 
+    def get_or_create_node(key: str, display_name: str) -> InfraNode:
+        node = session.execute(
+            select(InfraNode).where(
+                InfraNode.org_id == org_id,
+                InfraNode.key == key,
+            )
+        ).scalar_one_or_none()
+        if node is None:
+            node = InfraNode(
+                id=uuid.uuid4(),
+                org_id=org_id,
+                kind="switch" if key.startswith("switch-") else "processor",
+                key=key,
+                display_name=display_name,
+            )
+            session.add(node)
+            session.flush()
+        return node
+
+    processor_a = get_or_create_node("processor-a", "Processor A")
+    processor_b = get_or_create_node("processor-b", "Processor B")
+    switch_a = get_or_create_node("switch-a", "Switch A")
+    switch_b = get_or_create_node("switch-b", "Switch B")
+    shared_switch = get_or_create_node("switch-shared", "Shared upstream switch")
+
     if seed_request.reset:
         session.query(PaymentEvent).filter(PaymentEvent.org_id == org_id).delete()
         session.query(Payment).filter(Payment.org_id == org_id).delete()
         session.query(Obligation).filter(Obligation.org_id == org_id).delete()
         session.query(DependencyEdge).filter(DependencyEdge.org_id == org_id).delete()
+        session.query(IncidentTransition).filter(IncidentTransition.org_id == org_id).delete()
+        session.query(Incident).filter(Incident.org_id == org_id).delete()
+        session.query(Recommendation).filter(Recommendation.org_id == org_id).delete()
         session.flush()
 
     for index in range(28):
         session.add(
             Payment(
+                id=uuid.uuid4(),
                 org_id=org_id,
                 provider_node_id=provider_a.id,
                 merchant_reference=f"ADE-ORD-{100102 + index}",
@@ -565,6 +735,7 @@ def seed_simulator(
     for index in range(12):
         session.add(
             Payment(
+                id=uuid.uuid4(),
                 org_id=org_id,
                 provider_node_id=provider_a.id,
                 merchant_reference=f"ADE-ORD-{200101 + index}",
@@ -579,6 +750,7 @@ def seed_simulator(
         )
     session.add(
         Obligation(
+            id=uuid.uuid4(),
             org_id=org_id,
             label="Ade Stores supplier obligation",
             amount_kobo=110000000,
@@ -588,30 +760,106 @@ def seed_simulator(
             simulated=True,
         )
     )
+    branch_edges = [
+        (provider_a, processor_a),
+        (provider_b, processor_b),
+    ]
     if seed_request.branch == "shared":
+        branch_edges.extend([
+            (processor_a, shared_switch),
+            (processor_b, shared_switch),
+        ])
+    else:
+        branch_edges.extend([
+            (processor_a, switch_a),
+            (processor_b, switch_b),
+        ])
+    for from_node, to_node in branch_edges:
         session.add(
             DependencyEdge(
+                id=uuid.uuid4(),
                 org_id=org_id,
-                from_node_id=provider_a.id,
-                to_node_id=provider_b.id,
+                from_node_id=from_node.id,
+                to_node_id=to_node.id,
                 relation="depends_on",
                 status="known",
-                source_note="Both routes share the failing upstream switch",
+                source_note=(
+                    "Simulated Ade Stores branch topology; "
+                    f"{seed_request.branch} failure domain"
+                ),
                 simulated=True,
             )
         )
-    else:
-        session.add(
-            DependencyEdge(
-                org_id=org_id,
-                from_node_id=provider_a.id,
-                to_node_id=provider_b.id,
-                relation="independent_of",
-                status="unknown",
-                source_note="Provider B independence verified",
-                simulated=True,
-            )
-        )
+    occurred_at = datetime(2026, 11, 19, 16, 30, tzinfo=timezone.utc)
+    incident = Incident(
+        id=uuid.uuid4(),
+        org_id=org_id,
+        subject_node_id=provider_a.id,
+        state="confirmed",
+        severity="high",
+        opened_at=occurred_at,
+        resolved_at=None,
+        simulated=True,
+    )
+    session.add(incident)
+    session.flush()
+    session.add(IncidentTransition(
+        id=uuid.uuid4(),
+        org_id=org_id,
+        incident_id=incident.id,
+        from_state="suspected",
+        to_state="confirmed",
+        occurred_at=occurred_at,
+        evidence={
+            "kind": "provider_status_check",
+            "description": "Ade Stores simulated incident corroboration",
+            "source": "simulator",
+        },
+        simulated=True,
+    ))
+    verdict = (
+        IndependenceVerdict.INDEPENDENT
+        if seed_request.branch == "independent"
+        else IndependenceVerdict.SHARED
+    )
+    financial = financial_impact(
+        session,
+        current,
+        org_id=org_id,
+        deadline=datetime(2026, 11, 19, 17, 0, tzinfo=timezone.utc),
+        recovery_probability_bps=6000,
+    ).assumed_recovery
+    recommendation_result = recommend(
+        financial,
+        verdict,
+        RecommendationContext(
+            evidence=("Ade Stores dependency verdict", "Simulated incident evidence"),
+            limitations=("Recovery probability is an assumption",),
+        ),
+    )
+    session.add(Recommendation(
+        id=uuid.uuid4(),
+        org_id=org_id,
+        incident_id=incident.id,
+        action=recommendation_result.action,
+        tier=int(recommendation_result.tier),
+        reasons=list(recommendation_result.reasons),
+        evidence=list(recommendation_result.evidence),
+        limitations=list(recommendation_result.limitations),
+        approval_required=recommendation_result.approval_required,
+        simulated=True,
+    ))
+    append_audit(
+        session,
+        principal_org_id=current.org_id,
+        org_id=org_id,
+        actor=current.user_id,
+        action="seed_ade_stores",
+        entity_type="organisation",
+        entity_id=org_id,
+        payload={"branch": seed_request.branch, "simulated": True},
+        simulated=True,
+    )
     session.commit()
     return SimulatorSeedResult(
         branch=seed_request.branch,

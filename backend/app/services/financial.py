@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.demo_models import Recommendation
+from app.db.demo_models import FinancialSnapshot, Recommendation
 from app.db.models import Organisation
 from app.db.payments import Payment
 from app.domain.dependency import IndependenceVerdict
@@ -21,8 +21,14 @@ from app.domain.payment_states import PaymentState
 from app.domain.recommendation import RecommendationContext, recommend
 from app.security.auth import Principal, Role, require_role
 from app.security.audit import append_audit
-from app.security.tenancy import org_scoped_query, require_tenant_match
+from app.security.tenancy import require_tenant_match
 from app.db.demo_models import Obligation as ObligationRow
+
+
+def _database_datetime(value: datetime | None) -> datetime | None:
+    if value is None or value.tzinfo is not None:
+        return value
+    return value.replace(tzinfo=timezone.utc)
 
 
 def financial_impact(
@@ -37,7 +43,7 @@ def financial_impact(
     require_tenant_match(principal.org_id, org_id)
 
     organisation = session.execute(
-        org_scoped_query(session, Organisation, org_id)
+        select(Organisation).where(Organisation.id == org_id)
     ).scalar_one()
     opening = Money(
         organisation.opening_available_kobo,
@@ -45,26 +51,26 @@ def financial_impact(
     )
 
     payments = session.execute(
-        org_scoped_query(session, Payment, org_id)
+        select(Payment).where(Payment.org_id == org_id)
     ).scalars().all()
     payment_views = [
         PaymentView(
             id=str(payment.id),
             amount=Money(payment.amount_kobo, payment.currency),
             state=PaymentState(payment.state),
-            settled_at=payment.settled_at,
+            settled_at=_database_datetime(payment.settled_at),
         )
         for payment in payments
     ]
     obligations = session.execute(
-        org_scoped_query(session, ObligationRow, org_id)
+        select(ObligationRow).where(ObligationRow.org_id == org_id)
     ).scalars().all()
     obligation_views = [
         Obligation(
             id=str(obligation.id),
             label=obligation.label,
             amount=Money(obligation.amount_kobo, obligation.currency),
-            due_at=obligation.due_at,
+            due_at=_database_datetime(obligation.due_at),
         )
         for obligation in obligations
     ]
@@ -77,6 +83,17 @@ def financial_impact(
         deadline,
         recovery_probability_bps,
     )
+    session.add(FinancialSnapshot(
+        org_id=org_id,
+        opening_available_kobo=opening.minor,
+        settled_kobo=buckets.settled_by_deadline.minor,
+        unresolved_kobo=buckets.unresolved.minor,
+        obligations_due_kobo=reports.assumed_recovery.obligations_due.minor,
+        worst_case_position_kobo=reports.assumed_recovery.worst_case_position.minor,
+        currency=opening.currency,
+        deadline=deadline,
+        simulated=bool(payments and all(payment.simulated for payment in payments)),
+    ))
     append_audit(
         session,
         principal_org_id=principal.org_id,

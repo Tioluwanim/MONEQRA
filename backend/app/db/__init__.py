@@ -9,6 +9,11 @@ from app.db.demo_models import (
     IncidentTransition,
     Obligation,
     Recommendation,
+    FinancialSnapshot,
+    ProviderCredential,
+    ProviderRequest,
+    ProviderSignal,
+    ScenarioRun,
 )
 
 __all__ = [
@@ -24,4 +29,9 @@ __all__ = [
     "Recommendation",
     "Approval",
     "AuditEvent",
+    "FinancialSnapshot",
+    "ProviderCredential",
+    "ProviderRequest",
+    "ProviderSignal",
+    "ScenarioRun",
 ]

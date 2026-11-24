@@ -13,6 +13,9 @@ from app.db.session import org_query
 from app.db.demo_models import (
     Approval,
     AuditEvent,
+    FinancialSnapshot,
+    ProviderRequest,
+    ProviderSignal,
     DependencyEdge,
     Incident,
     IncidentTransition,
