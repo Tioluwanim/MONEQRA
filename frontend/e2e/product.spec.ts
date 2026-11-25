@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test("four product routes keep simulation label and expose shell", async ({ page }) => {
   for (const route of ["/overview", "/dependency", "/evidence", "/decisions"]) {
     await page.goto(route);
-    await expect(page.getByText("SIMULATION").first()).toBeVisible();
+    await expect(page.getByText(/Simulation · demo data/i).first()).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Product screens" })).toBeVisible();
   }
 });
@@ -19,8 +19,8 @@ test("offline mocks remain available", async ({ page }) => {
 test("landing connects the story, demo and real workspace", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveAccessibleName("From payment incident to business impact.");
-  await expect(page.getByRole("link", { name: /Enter Workspace/i }).first()).toBeVisible();
-  await expect(page.getByRole("link", { name: /Open Interactive Demo/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Open the workspace/i }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /Try the guided demo/i }).first()).toBeVisible();
 
   for (const id of ["product", "how-it-works", "dependency", "financial", "decision", "governance"]) {
     await expect(page.locator(`#${id}`)).toHaveCount(1);
@@ -30,45 +30,36 @@ test("landing connects the story, demo and real workspace", async ({ page }) => 
 
 test("the guided demo runs its interactive branches and records approval", async ({ page }) => {
   await page.goto("/demo");
-  await expect(page.getByRole("heading", { level: 1, name: /Ade Stores/i })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /payment provider slows down/i })).toBeVisible();
 
-  // Evidence: an inconclusive provider check never confirms the unknown funds.
-  await page.getByRole("button", { name: "Stage 2: Transactions" }).click();
-  await page.getByRole("checkbox", { name: /inconclusive provider response/i }).check();
-  await page.getByRole("button", { name: /Run check/i }).click();
-  await expect(page.getByText("Provider check inconclusive")).toBeVisible();
-  await expect(page.getByText(/Retry blocked · unknown · check failed/i).first()).toBeVisible();
+  await page.getByRole("button", { name: "Step 2: Payments" }).click();
+  await page.getByRole("checkbox", { name: /inconclusive answer/i }).check();
+  await page.getByRole("button", { name: /Check with provider/i }).click();
+  await expect(page.getByText(/still not confirmed and are not counted/i)).toBeVisible();
 
-  // Dependency: an independent branch changes the recommendation.
-  await page.getByRole("button", { name: "Stage 3: Dependency" }).click();
-  await page.getByRole("button", { name: "independent", exact: true }).click();
-  await expect(page.getByText("INDEPENDENT").first()).toBeVisible();
+  await page.getByRole("button", { name: "Step 3: Switching" }).click();
+  await page.getByRole("button", { name: "Separate systems" }).click();
+  await expect(page.getByText("Safe to switch").first()).toBeVisible();
 
-  // Finance: full recovery produces the contract position, still labelled an assumption.
-  await page.getByRole("button", { name: "Stage 4: Financial" }).click();
+  await page.getByRole("button", { name: "Step 4: Your money" }).click();
   await page.getByRole("slider", { name: /Assumed recovery rate/i }).fill("10000");
   await expect(page.getByText("₦250,000").first()).toBeVisible();
   await expect(page.getByText(/never counted as confirmed cash/i)).toBeVisible();
 
-  // Decision and approval: the branch changes the action; only approver can decide.
-  await page.getByRole("button", { name: "Stage 5: Decision" }).click();
+  await page.getByRole("button", { name: "Step 5: Decision" }).click();
   await expect(page.getByText(/Route new checkouts to Provider B/i)).toBeVisible();
-
-  await page.getByRole("button", { name: "Stage 6: Approval" }).click();
   const approveButton = page.getByRole("button", { name: /^Approve$/i });
   await expect(approveButton).toBeDisabled();
   await page.getByRole("combobox", { name: /Demo role/i }).selectOption("approver");
   await approveButton.click();
-  await expect(page.getByText(/Decision approve recorded/i)).toBeVisible();
-
-  await page.getByRole("button", { name: "Stage 7: Report" }).click();
-  await expect(page.getByRole("link", { name: /Enter Workspace/i }).last()).toHaveAttribute("href", "/overview");
-  await expect(page.getByText(/recorded by approver/i)).toBeVisible();
+  await expect(page.getByText(/Approved and recorded/i)).toBeVisible();
+  await expect(page.getByRole("link", { name: /Open the workspace/i }).last()).toHaveAttribute("href", "/overview");
 });
 
 test("key routes have no horizontal overflow at the configured viewport", async ({ page }) => {
   for (const route of ["/", "/demo", "/overview", "/dependency", "/evidence", "/decisions"]) {
     await page.goto(route);
+    await page.waitForLoadState("networkidle");
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow, `${route} overflowed by ${overflow}px`).toBeLessThanOrEqual(2);
   }

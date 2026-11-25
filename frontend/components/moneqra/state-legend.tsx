@@ -1,16 +1,14 @@
+import { moneyStateLabels } from "@/lib/labels";
+import { StatusPill } from "./status-pill";
+
 export function StateLegend() {
-  const states = [
-    ["confirmed", "solid cash", "Cash received and settled"],
-    ["pending", "clock", "Not yet settled"],
-    ["unknown", "fog", "No provider evidence; never cash"],
-    ["estimated", "assumption", "Model estimate, not guaranteed"],
-  ] as const;
+  const states = ["confirmed", "pending", "unknown", "estimated"] as const;
   return (
-    <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-      {states.map(([state, marker, description]) => (
-        <div key={state} className="border-t border-[var(--ledger-rule)] py-2">
-          <dt className="font-mono text-xs uppercase" data-state={state}>{marker} · {state}</dt>
-          <dd className="text-sm text-[var(--ink-muted)]">{description}</dd>
+    <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {states.map((state) => (
+        <div key={state} data-state={state} className="card-soft p-3.5">
+          <dt><StatusPill tone={moneyStateLabels[state].tone}>{moneyStateLabels[state].label}</StatusPill></dt>
+          <dd className="mt-2 text-sm text-[var(--text-muted)]">{moneyStateLabels[state].hint}</dd>
         </div>
       ))}
     </dl>

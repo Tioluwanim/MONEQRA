@@ -42,7 +42,7 @@ describe("MONEQRA cinematic landing", () => {
   it("links demo CTAs to /demo and contains no forbidden claims", () => {
     vi.spyOn(window, "matchMedia").mockReturnValue(reducedMedia(true));
     render(<Home />);
-    expect(screen.getAllByRole("link", { name: "Demo" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Guided demo" }).length).toBeGreaterThan(0);
     const text = document.body.textContent ?? "";
     expect(text).not.toMatch(/bank data/i);
     expect(text).not.toMatch(/no one else/i);

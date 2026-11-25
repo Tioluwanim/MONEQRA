@@ -1,200 +1,95 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { motion } from "motion/react";
-import type { CSSProperties, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
-type Tone = "primary" | "teal" | "glass" | "outline" | "ghost";
+export function Logo({ className = "" }: { className?: string }) {
+  return (
+    <span className={`inline-flex items-center gap-2.5 ${className}`}>
+      <span aria-hidden="true" className="grid size-8 place-items-center rounded-[10px] bg-[var(--brand)] text-white shadow-sm">
+        <svg viewBox="0 0 24 24" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 17V7l8 7 8-7v10" />
+        </svg>
+      </span>
+      <span className="font-heading text-[1.2rem] font-extrabold tracking-tight text-[var(--text)]">MONEQRA</span>
+    </span>
+  );
+}
 
-const buttonTone: Record<Tone, string> = {
-  primary: "action-btn--primary",
-  teal: "action-btn--teal",
-  glass: "action-btn--glass",
-  outline: "action-btn--outline",
-  ghost: "action-btn--ghost",
-};
+type Variant = "primary" | "secondary" | "ghost";
 
 export function ActionLink({
   href,
   children,
-  tone = "primary",
-  arrow = true,
+  variant = "primary",
+  large = false,
   className = "",
-  external = false,
+  ...rest
 }: {
   href: string;
   children: ReactNode;
-  tone?: Tone;
-  arrow?: boolean;
+  variant?: Variant;
+  large?: boolean;
   className?: string;
-  external?: boolean;
-}) {
-  const classes = `action-btn ${buttonTone[tone]} ${className}`.trim();
-  if (external) {
-    return (
-      <a href={href} target="_blank" rel="noreferrer" className={classes}>
-        {children}
-        {arrow && <ArrowUpRight aria-hidden="true" className="size-4 action-btn__arrow" />}
-      </a>
-    );
-  }
+} & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "className">) {
   return (
-    <Link href={href} className={classes}>
+    <Link href={href} className={`btn btn-${variant} ${large ? "btn-lg" : ""} ${className}`} {...rest}>
       {children}
-      {arrow && <ArrowRight aria-hidden="true" className="size-4 action-btn__arrow" />}
     </Link>
   );
 }
 
 export function ActionButton({
-  children,
-  onClick,
-  tone = "primary",
-  arrow = false,
+  variant = "primary",
+  large = false,
   className = "",
-  disabled = false,
-  type = "button",
-}: {
-  children: ReactNode;
-  onClick?: () => void;
-  tone?: Tone;
-  arrow?: boolean;
-  className?: string;
-  disabled?: boolean;
-  type?: "button" | "submit";
-}) {
+  children,
+  ...rest
+}: { variant?: Variant; large?: boolean } & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
-    <button type={type} onClick={onClick} disabled={disabled} className={`action-btn ${buttonTone[tone]} ${className}`.trim()}>
+    <button type="button" className={`btn btn-${variant} ${large ? "btn-lg" : ""} ${className}`} {...rest}>
       {children}
-      {arrow && <ArrowRight aria-hidden="true" className="size-4 action-btn__arrow" />}
     </button>
   );
 }
 
-export function Eyebrow({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <p className={`eyebrow ${className}`.trim()}>{children}</p>;
-}
-
 export function SectionHeading({
-  eyebrow,
+  kicker,
   title,
-  description,
-  tone = "dark",
-  align = "left",
-  className = "",
+  lead,
+  center = false,
   id,
 }: {
-  eyebrow: string;
-  title: ReactNode;
-  description?: ReactNode;
-  tone?: "dark" | "light";
-  align?: "left" | "center";
-  className?: string;
+  kicker?: string;
+  title: string;
+  lead?: string;
+  center?: boolean;
   id?: string;
 }) {
   return (
-    <div className={`${align === "center" ? "mx-auto max-w-3xl text-center" : "max-w-3xl"} ${className}`.trim()}>
-      <div className={`mb-4 flex items-center gap-3 ${align === "center" ? "justify-center" : ""}`}>
-        <span className={`h-px w-8 ${tone === "dark" ? "bg-[var(--teal-bright)]" : "bg-[var(--cobalt)]"}`} aria-hidden="true" />
-        <Eyebrow className={tone === "dark" ? "text-[var(--teal-bright)]" : "text-[var(--cobalt)]"}>{eyebrow}</Eyebrow>
-      </div>
-      <h2 id={id} className={`font-heading text-[clamp(2.1rem,4.4vw,3.7rem)] leading-[1.07] tracking-[-0.02em] ${tone === "dark" ? "text-white" : "text-[var(--ink)]"}`}>
-        {title}
-      </h2>
-      {description && (
-        <p className={`mt-5 max-w-2xl text-base leading-7 md:text-lg ${tone === "dark" ? "text-[#cbd8f0]" : "text-[var(--ink-muted)]"} ${align === "center" ? "mx-auto" : ""}`}>
-          {description}
-        </p>
-      )}
+    <div className={`max-w-3xl ${center ? "mx-auto text-center" : ""}`}>
+      {kicker && <p className="mb-3 text-sm font-semibold text-[var(--brand)]">{kicker}</p>}
+      <h2 id={id} className="text-[clamp(1.85rem,4vw,2.75rem)]">{title}</h2>
+      {lead && <p className="mt-4 text-lg leading-8 text-[var(--text-muted)]">{lead}</p>}
     </div>
   );
 }
 
-export function Reveal({
-  children,
-  className = "",
-  delay = 0,
-  y = 26,
-  once = true,
-}: {
-  children: ReactNode;
-  className?: string;
-  delay?: number;
-  y?: number;
-  once?: boolean;
-}) {
+/** Fades content up once as it scrolls into view. Skipped for reduced motion. */
+export function Reveal({ children, delay = 0, className = "" }: { children: ReactNode; delay?: number; className?: string }) {
   const reduced = useReducedMotion();
+  if (reduced) return <div className={className}>{children}</div>;
   return (
     <motion.div
       className={className}
-      initial={reduced ? false : { opacity: 0, y }}
-      whileInView={reduced ? undefined : { opacity: 1, y: 0, transition: { duration: 0.65, delay, ease: [0.16, 1, 0.3, 1] } }}
-      viewport={reduced ? undefined : { once, amount: 0.15 }}
+      initial={{ opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{ duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
     </motion.div>
-  );
-}
-
-const staggerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.09, delayChildren: 0.05 } },
-};
-
-export function StaggerGroup({
-  children,
-  className = "",
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  const reduced = useReducedMotion();
-  return (
-    <motion.div
-      className={className}
-      initial={reduced ? false : "hidden"}
-      whileInView={reduced ? undefined : "visible"}
-      viewport={reduced ? undefined : { once: true, amount: 0.1 }}
-      variants={reduced ? undefined : staggerVariants}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-export function StaggerItem({
-  children,
-  className = "",
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  const reduced = useReducedMotion();
-  return (
-    <motion.div
-      className={className}
-      variants={reduced ? undefined : { hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } } }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-export function IconBubble({ children, color = "var(--cobalt)", className = "" }: { children: ReactNode; color?: string; className?: string }) {
-  return (
-    <span className={`icon-bubble ${className}`.trim()} style={{ "--bubble-color": color } as CSSProperties} aria-hidden="true">
-      {children}
-    </span>
-  );
-}
-
-export function StatLine({ label, value, tone = "dark" }: { label: string; value: string; tone?: "dark" | "light" }) {
-  return (
-    <div className={`flex items-baseline justify-between gap-4 border-b py-2 ${tone === "dark" ? "border-white/12 text-white" : "border-[var(--ledger-rule)] text-[var(--ink)]"}`}>
-      <span className={`text-xs ${tone === "dark" ? "text-[#b6c6e6]" : "text-[var(--ink-muted)]"}`}>{label}</span>
-      <strong className="numeric text-sm font-semibold">{value}</strong>
-    </div>
   );
 }

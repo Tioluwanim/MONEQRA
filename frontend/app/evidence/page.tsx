@@ -1,74 +1,110 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { usePayments, useFinancialImpact, type Payment } from "@/lib/hooks";
-import { ProductShell } from "@/components/product/shell";
-import { PaymentsTable, LoadingSkeleton, EmptyState, ErrorState, MoneyValue } from "@/components/moneqra";
-import { apiRequest } from "@/lib/api-client";
-import { useAuth } from "@/lib/auth";
 import { z } from "zod";
+import { usePayments, useFinancialImpact, type Payment } from "@/lib/hooks";
+import { useAuth } from "@/lib/auth";
+import { apiRequest } from "@/lib/api-client";
+import { ProductShell, PageTitle } from "@/components/product/shell";
+import { LoadingSkeleton, EmptyState, ErrorState, StatusPill, MoneyValue } from "@/components/moneqra";
+import { paymentStateLabels } from "@/lib/labels";
+import { formatDayTime } from "@/lib/datetime";
+import { formatKobo } from "@/lib/money";
+
+const filters = [
+  { id: "all", label: "All" },
+  { id: "unknown", label: "Not confirmed" },
+  { id: "pending", label: "Waiting" },
+  { id: "settled", label: "In your account" },
+  { id: "failed", label: "Failed" },
+] as const;
 
 export default function EvidencePage() {
   const auth = useAuth();
   const payments = usePayments();
   const impact = useFinancialImpact(6000);
-  const [state, setState] = useState("all");
-  const [selected, setSelected] = useState<Payment | null>(null);
-  const [verifyMessage, setVerifyMessage] = useState("");
+  const [filter, setFilter] = useState<string>("unknown");
+  const [notice, setNotice] = useState<string>("");
+  const [busy, setBusy] = useState<string | null>(null);
 
-  const filtered = useMemo(() => payments.data?.items.filter((payment) => state === "all" || payment.state === state) ?? [], [payments.data, state]);
-  const verify = async (payment: Payment) => {
+  const items = useMemo(() => payments.data?.items ?? [], [payments.data]);
+  const unknownCount = items.filter((p) => p.state === "unknown").length;
+  const shown = useMemo(() => items.filter((p) => filter === "all" || p.state === filter), [items, filter]);
+  const canCheck = auth.role !== "viewer";
+
+  const check = async (payment: Payment) => {
+    setBusy(payment.id);
     try {
       const result = await apiRequest(`/v1/payments/${payment.id}/verify`, z.object({
         payment_id: z.string(), evidence_created: z.boolean(), applied: z.boolean(), new_state: z.string(), message: z.string(),
       }), auth.credential, undefined, { method: "POST" });
-      setVerifyMessage(result.message);
+      setNotice(`Payment ${payment.provider_reference}: ${result.message}`);
+      void payments.refetch();
     } catch {
-      setVerifyMessage("check failed, still unknown");
+      setNotice(`Payment ${payment.provider_reference}: the provider check failed, so it is still not confirmed.`);
+    } finally {
+      setBusy(null);
     }
   };
 
   return (
     <ProductShell>
-      <header className="flex flex-wrap items-end justify-between gap-4 border-t-2 border-[var(--cobalt)] py-5">
-        <div><p className="font-mono text-xs">EVIDENCE / IMPACT</p><h1 className="mt-2 text-4xl">Payments and liquidity</h1></div>
-        <span className="border border-[var(--vermilion)] px-2 py-1 font-mono text-xs text-[var(--vermilion)]">SIMULATION</span>
-      </header>
-      <div className="mb-5 flex flex-wrap items-center gap-3">
-        <label htmlFor="payment-state" className="text-sm">State</label>
-        <select id="payment-state" value={state} onChange={(event) => setState(event.target.value)} className="h-9 border border-[var(--ledger-rule-strong)] bg-[var(--paper-raised)] px-3">
-          <option value="all">All</option>
-          {["created", "pending", "unknown", "succeeded", "settled", "failed", "reversed"].map((value) => <option key={value} value={value}>{value}</option>)}
-        </select>
-      </div>
-      {payments.isLoading ? <LoadingSkeleton /> : payments.isError ? <ErrorState title="Payments unavailable" detail={payments.error.message} /> : filtered.length === 0 ? <EmptyState title="No payments match" /> : (
-        <PaymentsTable payments={filtered.map((payment) => ({
-          id: payment.id,
-          reference: payment.provider_reference,
-          amount: payment.amount_kobo,
-          state: payment.state,
-          lastProviderCheck: payment.settled_at ?? "check failed, still unknown",
-          checkFailed: payment.state === "unknown",
-        }))} />
-      )}
-      {filtered.length > 0 && (
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {filtered.filter((payment) => payment.state === "unknown").slice(0, 12).map((payment) => (
-            <article key={payment.id} className="border border-dashed border-[var(--unknown)] p-3">
-              <button type="button" onClick={() => setSelected(payment)} className="font-mono text-sm underline">{payment.provider_reference}</button>
-              {auth.role !== "viewer" && <button type="button" onClick={() => void verify(payment)} className="ml-3 border px-2 py-1 text-xs">Verify</button>}
-              {selected?.id === payment.id && <p className="mt-2 text-xs">Event history is available through payment detail. {verifyMessage}</p>}
-            </article>
-          ))}
+      <PageTitle title="Which payments can you count on?" lead="Only money that has reached your account is counted. Everything else waits until the provider confirms it." />
+
+      {unknownCount > 0 && (
+        <div className="callout callout-warn mb-6" role="note">
+          <div>
+            <strong>{unknownCount} payments are not confirmed yet.</strong>
+            <p className="text-[var(--text-muted)]">We cannot tell if these customers were charged. We will not retry them yet, so nobody is charged twice.</p>
+          </div>
         </div>
       )}
-      {impact.isLoading ? <LoadingSkeleton /> : impact.isError ? <ErrorState title="Liquidity unavailable" detail={impact.error.message} /> : impact.data ? (
-        <section className="mt-8 grid gap-3 md:grid-cols-3">
-          <MoneyValue kobo={impact.data.available_funds_kobo} state="confirmed" ticker />
-          <MoneyValue kobo={impact.data.obligations_due_kobo} state="pending" ticker />
-          <MoneyValue kobo={impact.data.worst_case_position_kobo} state="unknown" ticker />
-        </section>
-      ) : null}
+
+      {notice && <div role="status" className="callout callout-info mb-4"><div>{notice}</div></div>}
+
+      <div className="segmented mb-4" role="group" aria-label="Filter payments">
+        {filters.map((f) => (
+          <button key={f.id} type="button" aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>{f.label}</button>
+        ))}
+      </div>
+
+      {payments.isLoading ? <LoadingSkeleton rows={5} /> : payments.isError ? <ErrorState title="Could not load payments" detail={payments.error.message} onRetry={() => void payments.refetch()} /> : shown.length === 0 ? <EmptyState title="Nothing here" detail="No payments in this group. Try All." /> : (
+        <ul className="grid gap-3">
+          {shown.map((payment) => {
+            const meta = paymentStateLabels[payment.state];
+            const unknown = payment.state === "unknown";
+            return (
+              <li key={payment.id} className="card card-pad flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="num text-lg font-semibold">{formatKobo(payment.amount_kobo)}</p>
+                  <p className="truncate text-sm text-[var(--text-muted)]">Reference {payment.provider_reference}{payment.settled_at ? ` · reached you ${formatDayTime(payment.settled_at)}` : ""}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusPill tone={meta.tone} title={meta.hint}>{meta.label}</StatusPill>
+                  {unknown && <StatusPill tone="neutral" title="Retrying is blocked until we know whether the customer was charged.">Don&apos;t retry yet</StatusPill>}
+                  {unknown && (
+                    <button type="button" className="btn btn-secondary btn-sm" disabled={!canCheck || busy === payment.id} onClick={() => void check(payment)} title={canCheck ? undefined : "Viewers cannot run checks. Switch to Operator."}>
+                      {busy === payment.id ? "Checking…" : "Check with provider"}
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {!canCheck && unknownCount > 0 && <p className="mt-3 text-sm text-[var(--text-muted)]">You are viewing as a Viewer. Switch to Operator at the top to check payments with the provider.</p>}
+
+      <section className="mt-10" aria-labelledby="liq-heading">
+        <h2 id="liq-heading" className="mb-3 text-xl">What this means for your money</h2>
+        {impact.isLoading ? <LoadingSkeleton rows={2} /> : impact.isError ? <ErrorState title="Could not load your money position" detail={impact.error.message} onRetry={() => void impact.refetch()} /> : impact.data ? (
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="card card-pad"><MoneyValue kobo={impact.data.available_funds_kobo} state="confirmed" /></div>
+            <div className="card card-pad"><MoneyValue kobo={impact.data.obligations_due_kobo} state="pending" label="Due at the deadline" /></div>
+            <div className="card card-pad"><MoneyValue kobo={impact.data.worst_case_position_kobo} state="unknown" label="Gap if waiting payments never arrive" /></div>
+          </div>
+        ) : null}
+      </section>
     </ProductShell>
   );
 }

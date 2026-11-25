@@ -92,6 +92,9 @@ export const handlers = [
       message: "Provider check failed; payment remains unknown and cannot be retried.",
     }),
   ),
+  http.get("*/v1/obligations", () =>
+    HttpResponse.json({ items: [{ id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd1", org_id: orgId, label: "Ade Stores supplier obligation", amount_kobo: 110000000, currency: "NGN", due_at: "2026-11-19T17:00:00+01:00", status: "open", simulated: true }] }),
+  ),
   http.get("*/v1/incidents", () => HttpResponse.json({ items: [incident] })),
   http.get("*/v1/incidents/:id", () => HttpResponse.json({ ...incident, transitions })),
   http.get("*/v1/dependency-graph", () =>

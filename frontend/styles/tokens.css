@@ -1,58 +1,78 @@
+/*
+ * MONEQRA design tokens — "friendly fintech".
+ *
+ * Calm, light, readable. One confident blue for actions, a small set of
+ * status colours that always come with a word and an icon, generous space and
+ * soft rounded surfaces. No gradients on text, no glow, no noise, no grids.
+ */
 :root {
-  --paper: #f6efe3;
-  --ink: #12203a;
-  --cobalt: #2250e6;
-  --emerald: #12805c;
-  --amber: #d89114;
-  --unknown: #8b8f9a;
-  --vermilion: #d9411e;
-  --paper-raised: #fbf7ef;
-  --ink-muted: #5e6677;
-  --ledger-rule: rgb(18 32 58 / 14%);
-  --ledger-rule-strong: rgb(18 32 58 / 28%);
-  --radius-xs: 2px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --shadow-ledger: 0 1px 0 rgb(18 32 58 / 8%), 0 8px 24px rgb(18 32 58 / 5%);
+  /* Surfaces */
+  --canvas: #f6f7fb;
+  --surface: #ffffff;
+  --surface-soft: #f1f4fa;
+  --border: #e3e7ef;
+  --border-strong: #cdd4e1;
+
+  /* Text */
+  --text: #101828;
+  --text-muted: #556073;
+  --text-faint: #5f6b7d;
+
+  /* Brand action */
+  --brand: #2250e6;
+  --brand-hover: #1a40c2;
+  --brand-soft: #eaf0ff;
+  --brand-ink: #1b3fb8;
+
+  /* Status (always paired with a word + icon, never colour alone) */
+  --good: #0c8a5c;
+  --good-soft: #e5f5ee;
+  --good-ink: #09673f;
+  --wait: #b36a00;
+  --wait-soft: #fdf1d9;
+  --wait-ink: #7d4a00;
+  --unsure: #5b6475;
+  --unsure-soft: #eceff4;
+  --unsure-ink: #3d4658;
+  --bad: #c93b24;
+  --bad-soft: #fdebe7;
+  --bad-ink: #9b2a17;
+  --estimate: #2250e6;
+  --estimate-soft: #eaf0ff;
+
+  /* Shape and depth */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 6%);
+  --shadow-md: 0 1px 2px rgb(16 24 40 / 5%), 0 8px 24px -8px rgb(16 24 40 / 10%);
+  --shadow-lg: 0 2px 4px rgb(16 24 40 / 4%), 0 24px 48px -16px rgb(16 24 40 / 16%);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-fast: 120ms;
-  --motion-base: 180ms;
+  --motion-base: 200ms;
+
+  /* ── Legacy names ────────────────────────────────────────────
+     The component gallery and motion library still read these. They now map
+     onto the friendly palette so nothing renders with the old look. */
+  --paper: var(--canvas);
+  --paper-raised: var(--surface);
+  --ink: var(--text);
+  --ink-muted: var(--text-muted);
+  --cobalt: var(--brand);
+  --emerald: var(--good);
+  --amber: var(--wait);
+  --unknown: var(--unsure);
+  --vermilion: var(--bad);
+  --ledger-rule: var(--border);
+  --ledger-rule-strong: var(--border-strong);
+  --radius-xs: 6px;
+  --shadow-ledger: var(--shadow-md);
   --motion-instrument: 240ms;
+  --unknown-hatch: none;
+  --estimated-outline: 1px dashed var(--brand);
   --confirmed-marker: square;
   --pending-marker: clock;
-  --unknown-hatch:
-    repeating-linear-gradient(135deg, rgb(139 143 154 / 16%) 0 4px, transparent 4px 8px);
-  --estimated-outline: 1px dashed var(--cobalt);
-
-  /* ── MONEQRA experience palette ─────────────────────────────────
-     A composed sequence: midnight depth, warm ivory light, cobalt
-     intelligence, teal certainty, coral risk and violet nuance. */
-  --navy-950: #060f22;
-  --navy-900: #0a1730;
-  --navy-850: #0e1e3b;
-  --navy-800: #122b52;
-  --navy-700: #1c3b6b;
-  --cobalt-bright: #5b86ff;
-  --cobalt-soft: #dbe6ff;
-  --teal: #0f9d8a;
-  --teal-bright: #2ad4b6;
-  --teal-soft: #dcf8ef;
-  --coral: #f06a45;
-  --coral-soft: #ffe6dd;
-  --violet: #7c5cf6;
-  --violet-bright: #a78bfa;
-  --violet-soft: #eee9ff;
-  --ivory: #fffaf1;
-  --sky-soft: #eaf1ff;
-  --shadow-float: 0 24px 60px -24px rgb(9 23 48 / 35%), 0 8px 20px -12px rgb(9 23 48 / 25%);
-  --shadow-glow: 0 0 0 1px rgb(91 134 255 / 22%), 0 20px 60px -22px rgb(60 106 255 / 45%);
-  --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
-}
-.dark {
-  --paper: #0d1930;
-  --paper-raised: #12203a;
-  --ink: #f6efe3;
-  --ink-muted: #b9bdc8;
-  --ledger-rule: rgb(246 239 227 / 14%);
-  --ledger-rule-strong: rgb(246 239 227 / 28%);
-  --shadow-ledger: 0 1px 0 rgb(246 239 227 / 7%), 0 12px 32px rgb(0 0 0 / 18%);
 }

@@ -134,16 +134,32 @@ export function useDependencyGraph() {
   });
 }
 
+const obligationListSchema = z.object({
+  items: z.array(z.object({ due_at: z.string(), status: z.string() }).passthrough()),
+});
+const FALLBACK_DEADLINE = "2026-11-19T17:00:00+01:00";
+
 export function useFinancialImpact(probabilityBps = 6000) {
   const auth = useAuth();
   return useQuery({
     queryKey: ["financial-impact", auth.orgId, auth.role, probabilityBps],
-    queryFn: ({ signal }) => apiRequest(
-      `/v1/financial-impact?deadline=2026-11-19T17:00:00%2B01%3A00&recovery_probability_bps=${probabilityBps}`,
-      liquiditySchema,
-      auth.credential,
-      signal,
-    ),
+    queryFn: async ({ signal }) => {
+      // The deadline is the due time of the open obligation, not a hard-coded value.
+      let deadline = FALLBACK_DEADLINE;
+      try {
+        const obligations = await apiRequest("/v1/obligations", obligationListSchema, auth.credential, signal);
+        const due = obligations.items.filter((o) => o.status === "open").map((o) => o.due_at).sort()[0];
+        if (due) deadline = due;
+      } catch {
+        // Keep the fallback so the screen still renders.
+      }
+      return apiRequest(
+        `/v1/financial-impact?deadline=${encodeURIComponent(deadline)}&recovery_probability_bps=${probabilityBps}`,
+        liquiditySchema,
+        auth.credential,
+        signal,
+      );
+    },
   });
 }
 

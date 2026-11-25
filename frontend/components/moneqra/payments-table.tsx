@@ -1,10 +1,4 @@
-import {
-  Table,
-  TableBody,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { MoneyInput } from "@/lib/money";
 import type { PaymentState } from "./types";
 import { PaymentRow } from "./payment-row";
@@ -23,10 +17,10 @@ export function PaymentsTable({ payments }: { payments: PaymentListItem[] }) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Provider reference</TableHead>
+          <TableHead>Payment</TableHead>
           <TableHead>Amount</TableHead>
-          <TableHead>State</TableHead>
-          <TableHead>Last provider check</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Last check</TableHead>
           <TableHead>Retry</TableHead>
         </TableRow>
       </TableHeader>

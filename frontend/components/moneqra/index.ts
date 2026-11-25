@@ -14,3 +14,5 @@ export * from "./recommendation-card";
 export * from "./audit-entry";
 export * from "./role-switcher";
 export * from "./data-states";
+export * from "./status-pill";
+export * from "./route-chain";

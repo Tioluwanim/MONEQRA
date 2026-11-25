@@ -1,9 +1,12 @@
 "use client";
 
 import { useIncidents, useIncident, usePayments, useFinancialImpact } from "@/lib/hooks";
-import { ProductShell } from "@/components/product/shell";
-import { IncidentCard, IncidentTimeline, LoadingSkeleton, EmptyState, ErrorState, ProviderHealthChip, MoneyValue } from "@/components/moneqra";
-import { FaultLine } from "@/components/motion";
+import { ProductShell, PageTitle } from "@/components/product/shell";
+import { LoadingSkeleton, EmptyState, ErrorState, MoneyValue, IncidentTimeline, StatusPill } from "@/components/moneqra";
+import type { IncidentState } from "@/components/moneqra";
+import { incidentStateLabels, severityLabels } from "@/lib/labels";
+import { formatDayTime } from "@/lib/datetime";
+import { formatKobo } from "@/lib/money";
 
 export default function OverviewPage() {
   const incidents = useIncidents();
@@ -11,34 +14,69 @@ export default function OverviewPage() {
   const detail = useIncident(active?.id);
   const payments = usePayments();
   const impact = useFinancialImpact(6000);
+  const unknownCount = payments.data?.items.filter((p) => p.state === "unknown").length ?? 0;
 
   return (
     <ProductShell>
-      <div className={active ? "border-t-2 border-[var(--vermilion)]" : "border-t-2 border-[var(--emerald)]"}>
-        <header className="flex flex-wrap items-end justify-between gap-4 py-5">
-          <div><p className="font-mono text-xs">OVERVIEW / SEEDED SIMULATION</p><h1 className="mt-2 text-4xl">Incident and cash position</h1></div>
-          <span className="border border-[var(--vermilion)] px-2 py-1 font-mono text-xs text-[var(--vermilion)]">SIMULATION</span>
-        </header>
-        {active && <FaultLine />}
-        <div className="grid gap-5 md:grid-cols-3">
-          <section className="md:col-span-2">
-            {incidents.isLoading ? <LoadingSkeleton rows={3} /> : incidents.isError ? <ErrorState title="Incident unavailable" detail={incidents.error.message} /> : !active ? <EmptyState title="No active incident" detail="The provider position is calm." /> : (
-              <IncidentCard title="Active payment incident" severity={(["low", "medium", "high", "critical"].includes(active.severity) ? active.severity : "high") as "low" | "medium" | "high" | "critical"} state="confirmed" evidence={detail.data?.transitions.map((transition) => `${transition.to_state}: ${String(transition.evidence.description ?? "provider status evidence")}`) ?? ["Loading detection evidence"]} />
-            )}
-            {detail.data && <div className="mt-5"><IncidentTimeline state={detail.data.state} events={detail.data.transitions.map((transition) => ({ state: transition.to_state as "suspected" | "confirmed" | "monitoring" | "recovering" | "resolved", timestamp: transition.occurred_at, evidence: String(transition.evidence.description ?? "provider status check") }))} /></div>}
-          </section>
-          <aside className="grid content-start gap-4">
-            <ProviderHealthChip name="Fictional Provider A" health={active ? "incident" : "healthy"} successRate={active ? 72 : 99} lastChecked={active?.opened_at ?? "No active incident"} />
-            {impact.isLoading ? <LoadingSkeleton rows={3} /> : impact.isError ? <ErrorState title="Cash position unavailable" detail={impact.error.message} /> : impact.data ? (
-              <>
-                <MoneyValue kobo={impact.data.available_funds_kobo} state="confirmed" ticker />
-                <MoneyValue kobo={impact.data.obligations_due_kobo} state="pending" ticker />
-                <MoneyValue kobo={impact.data.worst_case_position_kobo} state="unknown" ticker />
-              </>
-            ) : null}
-          </aside>
-        </div>
-        {payments.data && <p className="mt-6 font-mono text-xs">{payments.data.items.length} payments · unknown entries remain blocked from retry</p>}
+      <PageTitle
+        title={active ? "A payment provider is having a problem" : "Everything looks calm"}
+        lead={
+          active
+            ? "Some customer payments cannot be confirmed right now. Here is what that means for the money you expect today."
+            : "No payment problems are open. Nothing needs your attention."
+        }
+      />
+
+      <section aria-labelledby="money-heading" className="mb-8 min-h-[16rem] md:min-h-[12rem]">
+        <h2 id="money-heading" className="mb-3 text-xl">Your money right now</h2>
+        {impact.isLoading ? <LoadingSkeleton rows={2} /> : impact.isError ? <ErrorState title="Could not load your money position" detail={impact.error.message} onRetry={() => void impact.refetch()} /> : impact.data ? (
+          <>
+            <div className="grid gap-4 lg:grid-cols-3">
+              <div className="card card-pad"><MoneyValue kobo={impact.data.available_funds_kobo} state="confirmed" label="In your account" /><p className="mt-2 text-sm text-[var(--text-muted)]">Confirmed money you can spend.</p></div>
+              <div className="card card-pad"><MoneyValue kobo={impact.data.obligations_due_kobo} state="pending" label="Due at the deadline" /><p className="mt-2 text-sm text-[var(--text-muted)]">What you have to pay by the deadline.</p></div>
+              <div className="card card-pad"><MoneyValue kobo={impact.data.worst_case_position_kobo} state="unknown" label="Gap if waiting payments never arrive" /><p className="mt-2 text-sm text-[var(--text-muted)]">Shown as short when below zero. Worst case.</p></div>
+            </div>
+            <p className="mt-3 text-sm text-[var(--text-muted)]">
+              Payments we cannot confirm are never counted as money you have. Worst case you would be {impact.data.worst_case_position_kobo < 0 ? `${formatKobo(Math.abs(impact.data.worst_case_position_kobo))} short` : `${formatKobo(impact.data.worst_case_position_kobo)} ahead`}.
+            </p>
+          </>
+        ) : null}
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <section aria-labelledby="happened-heading" className="card card-pad min-h-[26rem]">
+          <h2 id="happened-heading" className="text-xl">What happened</h2>
+          {incidents.isLoading ? <div className="mt-4"><LoadingSkeleton rows={3} /></div> : incidents.isError ? <ErrorState title="Could not load the problem" detail={incidents.error.message} onRetry={() => void incidents.refetch()} /> : !active ? <EmptyState title="No open problems" detail="Your payment providers look healthy." /> : (
+            <>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <StatusPill tone={incidentStateLabels[active.state].tone}>{incidentStateLabels[active.state].label}</StatusPill>
+                <StatusPill tone="neutral">{severityLabels[active.severity] ?? "Problem"}</StatusPill>
+                <span className="text-sm text-[var(--text-muted)]">Started {formatDayTime(active.opened_at)}</span>
+              </div>
+              {detail.data && (
+                <div className="mt-6">
+                  <IncidentTimeline
+                    state={detail.data.state}
+                    events={detail.data.transitions.map((t) => ({
+                      state: t.to_state as IncidentState,
+                      timestamp: formatDayTime(t.occurred_at),
+                      evidence: String(t.evidence.description ?? incidentStateLabels[t.to_state as IncidentState]?.hint ?? "Provider status check"),
+                    }))}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </section>
+        <aside className="card card-pad content-start">
+          <h2 className="text-xl">Payments</h2>
+          {payments.isLoading ? <LoadingSkeleton rows={2} /> : payments.data ? (
+            <>
+              <p className="mt-3 text-[var(--text-muted)]"><strong className="num text-3xl text-[var(--text)]">{unknownCount}</strong> of {payments.data.items.length} payments are not confirmed yet.</p>
+              <p className="mt-2 text-sm text-[var(--text-muted)]">We will not retry them until we know whether the customer was charged, so nobody is charged twice.</p>
+            </>
+          ) : null}
+        </aside>
       </div>
     </ProductShell>
   );

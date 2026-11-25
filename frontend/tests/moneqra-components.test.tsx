@@ -17,12 +17,12 @@ describe("MONEQRA domain components", () => {
       render(<MoneyValue kobo={110000000} state={state} />);
     }
     expect(screen.getAllByText("₦1,100,000")).toHaveLength(4);
-    expect(screen.getAllByText(/Confirmed|Pending|Unknown|Assumption/)).toHaveLength(4);
+    expect(screen.getAllByText(/In your account|Due|Not confirmed yet|Estimate/)).toHaveLength(4);
   });
 
   it("renders shared and unverifiable verdicts unmistakably", () => {
     render(<VerdictBadge verdict="shared" reason="Both routes use the same upstream switch." />);
-    expect(screen.getByText("shared")).toBeVisible();
+    expect(screen.getByText("Same failing system")).toBeVisible();
     expect(screen.getByText(/same upstream switch/)).toBeVisible();
   });
 
@@ -38,7 +38,7 @@ describe("MONEQRA domain components", () => {
         />
       </tbody></table>
     );
-    expect(screen.getByText(/Retry blocked · unknown · check failed/)).toBeVisible();
+    expect(screen.getByText(/Don.t retry yet/)).toBeVisible();
   });
 
   it("does not disable approval for approvers", () => {
@@ -64,6 +64,6 @@ describe("MONEQRA domain components", () => {
 
   it("exports a retry tag for unknown payments", () => {
     render(<RetryBlockedTag />);
-    expect(screen.getByText(/Retry blocked/)).toBeVisible();
+    expect(screen.getByText(/Don.t retry yet/)).toBeVisible();
   });
 });
