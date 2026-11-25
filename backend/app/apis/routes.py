@@ -706,13 +706,14 @@ def seed_simulator(
     shared_switch = get_or_create_node("switch-shared", "Shared upstream switch")
 
     if seed_request.reset:
+        session.query(Approval).filter(Approval.org_id == org_id).delete()
+        session.query(Recommendation).filter(Recommendation.org_id == org_id).delete()
         session.query(PaymentEvent).filter(PaymentEvent.org_id == org_id).delete()
         session.query(Payment).filter(Payment.org_id == org_id).delete()
         session.query(Obligation).filter(Obligation.org_id == org_id).delete()
         session.query(DependencyEdge).filter(DependencyEdge.org_id == org_id).delete()
         session.query(IncidentTransition).filter(IncidentTransition.org_id == org_id).delete()
         session.query(Incident).filter(Incident.org_id == org_id).delete()
-        session.query(Recommendation).filter(Recommendation.org_id == org_id).delete()
         session.flush()
 
     for index in range(28):

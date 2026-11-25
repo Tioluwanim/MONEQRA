@@ -1,0 +1,158 @@
+@layer components {
+/* MONEQRA shared UI classes: friendly fintech. Layout, cards, buttons, status pills. */
+
+.page-width {
+  width: min(100% - 2.5rem, 72rem);
+  margin-inline: auto;
+}
+@media (min-width: 768px) {
+  .page-width { width: min(100% - 4rem, 72rem); }
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ── Cards ───────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.card-pad { padding: 1.25rem; }
+@media (min-width: 640px) { .card-pad { padding: 1.5rem; } }
+.card-soft {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.card-lift {
+  transition: transform var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out);
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) ease;
+}
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled, .btn[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: var(--brand); color: #fff; box-shadow: 0 1px 2px rgb(34 80 230 / 30%); }
+.btn-primary:hover:not(:disabled) { background: var(--brand-hover); }
+.btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
+.btn-secondary:hover:not(:disabled) { background: var(--surface-soft); }
+.btn-ghost { background: transparent; color: var(--brand-ink); }
+.btn-ghost:hover:not(:disabled) { background: var(--brand-soft); }
+.btn-danger { background: var(--surface); color: var(--bad-ink); border-color: #f1c4bb; }
+.btn-danger:hover:not(:disabled) { background: var(--bad-soft); }
+.btn-lg { min-height: 3.25rem; padding: 0.8rem 1.6rem; font-size: 1rem; }
+.btn-sm { min-height: 2.25rem; padding: 0.4rem 0.85rem; font-size: 0.85rem; }
+
+/* ── Status pills (colour + icon + word, never colour alone) ── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.pill-good { background: var(--good-soft); color: var(--good-ink); }
+.pill-wait { background: var(--wait-soft); color: var(--wait-ink); }
+.pill-unsure { background: var(--unsure-soft); color: var(--unsure-ink); border-color: var(--border-strong); border-style: dashed; }
+.pill-bad { background: var(--bad-soft); color: var(--bad-ink); }
+.pill-estimate { background: var(--estimate-soft); color: var(--brand-ink); border-color: #bfcff9; border-style: dashed; }
+.pill-brand { background: var(--brand-soft); color: var(--brand-ink); }
+.pill-neutral { background: var(--surface-soft); color: var(--text-muted); border-color: var(--border); }
+
+/* ── Callouts ───────────────────────────────────────────────── */
+.callout {
+  display: flex;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  font-size: 0.95rem;
+}
+.callout-info { background: var(--brand-soft); border-color: #cddafb; }
+.callout-warn { background: var(--wait-soft); border-color: #f0d9a3; }
+.callout-bad { background: var(--bad-soft); border-color: #f4cfc7; }
+.callout-good { background: var(--good-soft); border-color: #bfe5d3; }
+
+/* ── Form controls ──────────────────────────────────────────── */
+.field {
+  min-height: 2.75rem;
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.field:disabled { background: var(--surface-soft); color: var(--text-faint); }
+
+/* ── Tabs / segmented control ───────────────────────────────── */
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+}
+.segmented button {
+  min-height: 2.25rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 9px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.segmented button[aria-pressed="true"],
+.segmented button[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  z-index: 100;
+  background: var(--brand);
+  color: #fff;
+  padding: 0.75rem 1rem;
+  border-radius: 0 0 var(--radius-md) 0;
+}
+.skip-link:focus { left: 0; }
+
+}

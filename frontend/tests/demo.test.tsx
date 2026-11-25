@@ -50,26 +50,23 @@ describe("Ade Stores demo finance", () => {
 });
 
 describe("guided demo experience", () => {
-  it("walks through stages and gates approval by role", async () => {
+  it("walks through the steps and gates approval by role", async () => {
     const user = userEvent.setup();
     render(<DemoExperience />);
 
-    expect(screen.getByRole("heading", { name: /A provider degrades/i })).toBeVisible();
-    await user.click(screen.getByRole("button", { name: /Continue/i }));
-    expect(screen.getByRole("heading", { name: /Verify payments before counting money/i })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1, name: /A payment provider slows down/i })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /^Next: Payments/i }));
+    expect(screen.getByRole("heading", { level: 1, name: /Which payments are confirmed/i })).toBeVisible();
 
-    await user.click(screen.getByRole("button", { name: /Stage 6: Approval/i }));
-    expect(screen.getByRole("heading", { name: /Only an authorised role can decide/i })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /Step 5: Decision/i }));
+    expect(screen.getByRole("heading", { level: 1, name: /What should you do/i })).toBeVisible();
 
     const approveButton = screen.getByRole("button", { name: /^Approve$/i });
     expect(approveButton).toBeDisabled();
     await user.selectOptions(screen.getByRole("combobox", { name: /Demo role/i }), "approver");
     expect(approveButton).toBeEnabled();
     await user.click(approveButton);
-    expect(screen.getByText(/Decision approve recorded/i)).toBeVisible();
-
-    await user.click(screen.getByRole("button", { name: /Stage 7: Report/i }));
-    expect(screen.getByRole("heading", { name: /Leave with an auditable decision trail/i })).toBeVisible();
-    expect(screen.getByRole("link", { name: /Enter Workspace/i })).toHaveAttribute("href", "/overview");
+    expect(screen.getByText(/Approved and recorded/i)).toBeVisible();
+    expect(screen.getByRole("link", { name: /Open the workspace/i })).toHaveAttribute("href", "/overview");
   });
 });

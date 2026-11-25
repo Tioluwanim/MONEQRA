@@ -16,19 +16,17 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "audit_events",
-        sa.Column("previous_hash", sa.String(), nullable=True),
-    )
-    op.add_column(
-        "audit_events",
-        sa.Column("sequence_number", sa.BigInteger(), nullable=False, server_default="1"),
-    )
-    op.alter_column(
-        "audit_events",
-        "sequence_number",
-        server_default=None,
-    )
+    # Revision 20261123_0913 builds tables from the current models, so on a fresh
+    # database these columns may already exist. Only add what is missing.
+    existing = {c["name"] for c in sa.inspect(op.get_bind()).get_columns("audit_events")}
+    if "previous_hash" not in existing:
+        op.add_column("audit_events", sa.Column("previous_hash", sa.String(), nullable=True))
+    if "sequence_number" not in existing:
+        op.add_column(
+            "audit_events",
+            sa.Column("sequence_number", sa.BigInteger(), nullable=False, server_default="1"),
+        )
+        op.alter_column("audit_events", "sequence_number", server_default=None)
 
 
 def downgrade() -> None:

@@ -1,13 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { z } from "zod";
+import { CheckCircle2 } from "lucide-react";
 import { useFinancialImpact, useRecommendations, useAudit, useDecisionMutation } from "@/lib/hooks";
 import { useAuth, type DemoRole } from "@/lib/auth";
 import { apiRequest } from "@/lib/api-client";
-import { ProductShell } from "@/components/product/shell";
+import { ProductShell, PageTitle } from "@/components/product/shell";
 import { RecommendationCard, AuditEntry, LoadingSkeleton, EmptyState, ErrorState, ScenarioCard, ScenarioStrip } from "@/components/moneqra";
-import { ApprovalMoment } from "@/components/motion";
-import { z } from "zod";
+
+const options = [
+  { bps: 0, label: "None arrive" },
+  { bps: 6000, label: "60% arrive" },
+  { bps: 10000, label: "All arrive" },
+];
 
 export default function DecisionsPage() {
   const auth = useAuth();
@@ -16,86 +22,89 @@ export default function DecisionsPage() {
   const recommendations = useRecommendations();
   const audit = useAudit();
   const decision = useDecisionMutation();
-  const [rejectReason, setRejectReason] = useState("");
-  const [approval, setApproval] = useState<"approve" | "reject" | null>(null);
-  const [auditMessage, setAuditMessage] = useState("");
+  const [done, setDone] = useState<"approve" | "reject" | null>(null);
   const [simulationMessage, setSimulationMessage] = useState("");
 
   const recommendation = recommendations.data?.items[0];
-  const canDecide = auth.role === "approver" || auth.role === "admin";
-
-  const verifyAudit = async () => {
-    setAuditMessage("Audit-chain verification endpoint is not exposed by the backend contract.");
-  };
 
   const runSimulator = async (branch: "shared" | "independent") => {
     try {
       await apiRequest("/v1/simulator/seed", z.object({
-        scenario: z.string(),
-        branch: z.enum(["shared", "independent"]),
-        simulated: z.boolean(),
-        opening_available_kobo: z.number(),
-        settled_kobo: z.number(),
-        unknown_kobo: z.number(),
-        obligation_kobo: z.number(),
+        scenario: z.string(), branch: z.enum(["shared", "independent"]), simulated: z.boolean(),
+        opening_available_kobo: z.number(), settled_kobo: z.number(), unknown_kobo: z.number(), obligation_kobo: z.number(),
       }), auth.credential, undefined, { method: "POST", body: JSON.stringify({ branch, reset: true }) });
-      setSimulationMessage(`Ade Stores ${branch} branch loaded.`);
+      setSimulationMessage(`Loaded the demo with ${branch === "shared" ? "both providers on the same failing system" : "independent providers"}. Refresh the other pages to see it.`);
     } catch (error) {
-      setSimulationMessage(error instanceof Error ? error.message : "Simulation control failed.");
+      setSimulationMessage(error instanceof Error ? error.message : "Could not load the demo scenario.");
     }
   };
 
   return (
-    <ProductShell>
-      <header className="flex flex-wrap items-end justify-between gap-4 border-t-2 border-[var(--emerald)] py-5">
-        <div><p className="font-mono text-xs">DECISIONS / APPROVAL / AUDIT</p><h1 className="mt-2 text-4xl">Three positions. One human decision.</h1></div>
-        <span className="border border-[var(--vermilion)] px-2 py-1 font-mono text-xs text-[var(--vermilion)]">SIMULATION</span>
-      </header>
-      {impact.isLoading ? <LoadingSkeleton /> : impact.isError ? <ErrorState title="Scenario unavailable" detail={impact.error.message} /> : impact.data ? (
-        <>
-          <div className="mb-5 flex flex-wrap items-center gap-3">
-            <label htmlFor="probability" className="text-sm">Recovery probability</label>
-            <select id="probability" value={probability} onChange={(event) => setProbability(Number(event.target.value))} className="h-9 border px-3">
-              {[0, 6000, 10000].map((value) => <option key={value} value={value}>{value / 100}%</option>)}
-            </select>
-            <span className="text-xs text-[var(--ink-muted)]">Sent to the backend; not recomputed here.</span>
-          </div>
-          <ScenarioStrip>
-            <ScenarioCard label="No recovery" probabilityBps={0} position={impact.data.no_recovery.scenario_position_kobo} />
-            <ScenarioCard label="Assumed recovery" probabilityBps={probability} position={impact.data.scenario_position_kobo} estimated={probability === 6000} />
-            <ScenarioCard label="Full recovery" probabilityBps={10000} position={impact.data.full_recovery.scenario_position_kobo} />
-          </ScenarioStrip>
-        </>
-      ) : null}
-      <section className="mt-8">
-        {recommendations.isLoading ? <LoadingSkeleton /> : recommendations.isError ? <ErrorState title="Recommendation unavailable" detail={recommendations.error.message} /> : !recommendation ? <EmptyState title="No recommendation" /> : (
+    <ProductShell next={false}>
+      <PageTitle title="What should you do?" lead="We suggest an action. Nothing happens until a person approves it, and MONEQRA never moves money." />
+
+      <section aria-labelledby="rec-heading" className="mb-10">
+        <h2 id="rec-heading" className="mb-3 text-xl">Our recommendation</h2>
+        {recommendations.isLoading ? <LoadingSkeleton /> : recommendations.isError ? <ErrorState title="Could not load the recommendation" detail={recommendations.error.message} onRetry={() => void recommendations.refetch()} /> : !recommendation ? <EmptyState title="No recommendation right now" detail="There is nothing to decide." /> : (
           <>
-            <RecommendationCard action={recommendation.action} tier={recommendation.tier} reasons={recommendation.reasons} evidence={recommendation.evidence} limitations={recommendation.limitations} role={auth.role as DemoRole} />
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" disabled={!canDecide || decision.isPending} onClick={() => { setApproval("approve"); decision.mutate({ id: recommendation.id, decision: "approve" }); }} className="h-9 bg-[var(--ink)] px-4 text-sm text-[var(--paper)] disabled:opacity-50">Approve</button>
-              <input value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} placeholder="Rejection reason" className="h-9 border px-3" aria-label="Rejection reason" disabled={!canDecide} />
-              <button type="button" disabled={!canDecide || decision.isPending || !rejectReason.trim()} onClick={() => { setApproval("reject"); decision.mutate({ id: recommendation.id, decision: "reject", reason: rejectReason }); }} className="h-9 border px-4 text-sm disabled:opacity-50">Reject</button>
-            </div>
-            {!canDecide && <p className="mt-2 text-xs text-[var(--ink-muted)]">Approval and rejection require the approver role. The server also enforces this permission.</p>}
-            {decision.isError && <ErrorState title="Decision not recorded" detail={decision.error.message} />}
-            {approval && decision.isSuccess && <ApprovalMoment action={approval} rule={recommendation.action} />}
+            <RecommendationCard
+              action={recommendation.action}
+              tier={recommendation.tier}
+              reasons={recommendation.reasons}
+              evidence={recommendation.evidence}
+              limitations={recommendation.limitations}
+              role={auth.role as DemoRole}
+              pending={decision.isPending}
+              onApprove={() => decision.mutate({ id: recommendation.id, decision: "approve" }, { onSuccess: () => setDone("approve") })}
+              onReject={(reason) => decision.mutate({ id: recommendation.id, decision: "reject", reason }, { onSuccess: () => setDone("reject") })}
+            />
+            {decision.isError && <div className="mt-3"><ErrorState title="Your decision was not saved" detail={decision.error.message} /></div>}
+            {done && decision.isSuccess && (
+              <div role="status" className="callout callout-good mt-4">
+                <CheckCircle2 aria-hidden="true" className="size-5 shrink-0 text-[var(--good)]" />
+                <div><strong>{done === "approve" ? "Approved and recorded." : "Declined and recorded."}</strong> <span className="text-[var(--text-muted)]">It now appears in the decision history below. No money was moved.</span></div>
+              </div>
+            )}
           </>
         )}
       </section>
-      <section className="mt-10">
-        <div className="flex items-center justify-between gap-3"><h2 className="text-2xl">Audit log</h2><button type="button" onClick={() => void verifyAudit()} className="border px-3 py-2 text-sm">Verify audit chain</button></div>
-        {auditMessage && <p role="status" className="mt-3 text-sm text-[var(--ink-muted)]">{auditMessage}</p>}
-        {audit.isLoading ? <LoadingSkeleton /> : audit.isError ? <ErrorState title="Audit unavailable" detail={audit.error.message} /> : audit.data?.items.length === 0 ? <EmptyState title="No audit records" /> : <div className="mt-4 grid gap-3">{audit.data?.items.map((entry) => <AuditEntry key={entry.id} actor={entry.actor} action={entry.action} entity={entry.entity.type} timestamp={entry.occurred_at} hash={entry.hash} previousHash={entry.previous_hash} />)}</div>}
+
+      <section aria-labelledby="sc-heading" className="mb-10">
+        <h2 id="sc-heading" className="text-xl">What could happen to your money</h2>
+        <p className="mb-4 mt-1 text-[var(--text-muted)]">After paying the supplier, here is what is left. How many of the waiting payments arrive is unknown, so choose a guess.</p>
+        <div className="segmented mb-4" role="group" aria-label="How many waiting payments arrive">
+          {options.map((o) => (
+            <button key={o.bps} type="button" aria-pressed={probability === o.bps} onClick={() => setProbability(o.bps)}>{o.label}</button>
+          ))}
+        </div>
+        {impact.isLoading ? <LoadingSkeleton rows={2} /> : impact.isError ? <ErrorState title="Could not load the scenarios" detail={impact.error.message} onRetry={() => void impact.refetch()} /> : impact.data ? (
+          <ScenarioStrip>
+            <ScenarioCard label="Worst case" probabilityBps={0} position={impact.data.no_recovery.scenario_position_kobo} description="None of the waiting payments arrive" />
+            <ScenarioCard label="Your guess" probabilityBps={probability} position={impact.data.scenario_position_kobo} estimated description="An estimate, not a promise" />
+            <ScenarioCard label="Best case" probabilityBps={10000} position={impact.data.full_recovery.scenario_position_kobo} description="All of the waiting payments arrive" />
+          </ScenarioStrip>
+        ) : null}
       </section>
+
+      <section aria-labelledby="hist-heading">
+        <h2 id="hist-heading" className="mb-3 text-xl">Decision history</h2>
+        {audit.isLoading ? <LoadingSkeleton /> : audit.isError ? <ErrorState title="Could not load the history" detail={audit.error.message} onRetry={() => void audit.refetch()} /> : audit.data?.items.length === 0 ? <EmptyState title="No decisions yet" detail="Approvals and declines will show up here." /> : (
+          <ul className="grid gap-3">
+            {audit.data?.items.map((entry) => <AuditEntry key={entry.id} actor={entry.actor} action={entry.action} entity={entry.entity.type} timestamp={entry.occurred_at} hash={entry.hash} previousHash={entry.previous_hash} />)}
+          </ul>
+        )}
+      </section>
+
       {auth.role === "admin" && (
-        <section className="mt-10 border-t border-[var(--ledger-rule)] pt-6">
-          <h2 className="text-2xl">Simulation controls</h2>
+        <details className="card card-pad mt-10">
+          <summary className="cursor-pointer font-semibold">Demo controls (admin)</summary>
+          <p className="mt-2 text-sm text-[var(--text-muted)]">Reload the demo data with a different setup.</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={() => void runSimulator("independent")} className="border px-3 py-2 text-sm">Load independent branch</button>
-            <button type="button" onClick={() => void runSimulator("shared")} className="border px-3 py-2 text-sm">Load shared-failure branch</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => void runSimulator("independent")}>Providers are independent</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => void runSimulator("shared")}>Providers share a failing system</button>
           </div>
           {simulationMessage && <p role="status" className="mt-3 text-sm">{simulationMessage}</p>}
-        </section>
+        </details>
       )}
     </ProductShell>
   );

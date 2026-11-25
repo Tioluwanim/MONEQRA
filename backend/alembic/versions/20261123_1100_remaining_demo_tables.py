@@ -11,8 +11,15 @@ branch_labels = None
 depends_on = None
 
 
+def _create_table(name, *args, **kwargs):
+    # Revision 20261123_0913 builds tables from the current models, so on a fresh
+    # database some of these may already exist. Only create what is missing.
+    if name not in sa.inspect(op.get_bind()).get_table_names():
+        op.create_table(name, *args, **kwargs)
+
+
 def upgrade() -> None:
-    op.create_table(
+    _create_table(
         "provider_credentials",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("org_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organisations.id", ondelete="RESTRICT"), nullable=False),
@@ -23,7 +30,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("org_id", "provider_node_id", "environment", name="uq_provider_credentials_org_provider_environment"),
         sa.CheckConstraint("environment IN ('sandbox', 'live')", name="ck_provider_credentials_environment"),
     )
-    op.create_table(
+    _create_table(
         "provider_signals",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("org_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organisations.id", ondelete="RESTRICT"), nullable=False),
@@ -37,7 +44,7 @@ def upgrade() -> None:
         sa.Column("simulated", sa.Boolean(), nullable=False),
         sa.UniqueConstraint("org_id", "provider_node_id", "provider_event_id", name="uq_provider_signals_org_provider_event"),
     )
-    op.create_table(
+    _create_table(
         "provider_requests",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("org_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organisations.id", ondelete="RESTRICT"), nullable=False),
@@ -49,7 +56,7 @@ def upgrade() -> None:
         sa.Column("occurred_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("simulated", sa.Boolean(), nullable=False),
     )
-    op.create_table(
+    _create_table(
         "financial_snapshots",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("org_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organisations.id", ondelete="RESTRICT"), nullable=False),
@@ -64,7 +71,7 @@ def upgrade() -> None:
         sa.Column("simulated", sa.Boolean(), nullable=False),
         sa.CheckConstraint("length(currency) = 3", name="ck_financial_snapshots_currency_code"),
     )
-    op.create_table(
+    _create_table(
         "scenario_runs",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("org_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("organisations.id", ondelete="RESTRICT"), nullable=False),
