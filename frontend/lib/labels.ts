@@ -97,3 +97,31 @@ export function describeAuditAction(action: string): string {
   const text = action.replace(/[._]+/g, " ").trim();
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
+
+export const coverageLabels = {
+  covered: { label: "Covered", hint: "Money already in your account covers this.", tone: "good" as Tone },
+  depends_on_unconfirmed: { label: "Only if waiting payments arrive", hint: "Covered only if payments we cannot confirm yet come in.", tone: "unsure" as Tone },
+  at_risk: { label: "At risk", hint: "Not covered even if the waiting payments arrive as guessed.", tone: "bad" as Tone },
+};
+
+export const categoryLabels: Record<string, string> = {
+  tax: "Tax",
+  payroll: "Salaries",
+  loan: "Loan repayment",
+  rent_utilities: "Rent or utilities",
+  supplier: "Supplier",
+  other: "Other",
+};
+
+export const actionKindLabels = {
+  request_extension: { label: "Ask for more time", short: "Ask for more time", hint: "Ask the other side to wait a few days." },
+  split_payment: { label: "Pay in two parts", short: "Pay in two parts", hint: "Pay part now and the rest when money arrives." },
+  pay_from_confirmed_first: { label: "Pay from money you have first", short: "Pay this first", hint: "Use confirmed money on this one before anything else." },
+};
+
+export const actionStatusLabels = {
+  pending: { label: "Waiting for approval", tone: "wait" as Tone },
+  approved: { label: "Approved, not done yet", tone: "brand" as Tone },
+  rejected: { label: "Declined", tone: "neutral" as Tone },
+  completed: { label: "Done", tone: "good" as Tone },
+};

@@ -107,6 +107,10 @@ export default function Home() {
           </div>
         </section>
 
+        <section id="bills" className="page-width py-16" aria-labelledby="bills-heading">
+          <SectionHeading id="bills-heading" kicker="Beyond the incident" title="Know which bills are safe to pay" lead="MONEQRA lines up salaries, tax, rent and suppliers by due date against money you actually have. Bills that depend on unconfirmed payments are flagged, and asking for more time becomes a request a second person approves." />
+        </section>
+
         <section id="decision" className="border-y border-[var(--border)] bg-[var(--surface)] py-16" aria-labelledby="dec-heading">
           <div className="page-width">
             <SectionHeading id="dec-heading" kicker="The decision" title="A person always has the last word" lead="We recommend an action and explain why. You approve or decline. Both choices are recorded." />

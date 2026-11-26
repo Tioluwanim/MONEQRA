@@ -188,6 +188,81 @@ class ObligationResponse(SchemaModel):
     due_at: datetime
     status: str
     simulated: bool
+    category: str = "other"
+    counterparty: str | None = None
+
+
+class ObligationCreate(SchemaModel):
+    label: str = Field(min_length=1, max_length=200)
+    amount_kobo: StrictInt = Field(gt=0)
+    due_at: datetime
+    category: str = "other"
+    counterparty: str | None = Field(default=None, max_length=200)
+
+    @field_validator("category")
+    @classmethod
+    def known_category(cls, value: str) -> str:
+        if value not in {"tax", "payroll", "loan", "rent_utilities", "supplier", "other"}:
+            raise ValueError("unknown category")
+        return value
+
+    @field_validator("due_at")
+    @classmethod
+    def aware(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("due_at must include a timezone")
+        return value
+
+
+class CoordinationActionCreate(SchemaModel):
+    obligation_id: UUID
+    kind: str
+    note: str = Field(default="", max_length=1000)
+    proposed_amount_kobo: StrictInt | None = Field(default=None, gt=0)
+
+    @field_validator("kind")
+    @classmethod
+    def known_kind(cls, value: str) -> str:
+        if value not in {"request_extension", "split_payment", "pay_from_confirmed_first"}:
+            raise ValueError("unknown action kind")
+        return value
+
+
+class CoordinationDecision(SchemaModel):
+    decision: str
+    reason: str = Field(default="", max_length=1000)
+
+    @field_validator("decision")
+    @classmethod
+    def approve_or_reject(cls, value: str) -> str:
+        if value not in {"approve", "reject"}:
+            raise ValueError("decision must be approve or reject")
+        return value
+
+
+class CoordinationComplete(SchemaModel):
+    outcome_note: str = Field(min_length=1, max_length=1000)
+
+
+class CoordinationActionResponse(SchemaModel):
+    id: UUID
+    obligation_id: UUID
+    obligation_label: str
+    kind: str
+    note: str
+    proposed_amount_kobo: int | None
+    status: str
+    requested_by: str
+    decided_by: str | None
+    decision_reason: str | None
+    outcome_note: str | None
+    created_at: datetime
+    decided_at: datetime | None
+    simulated: bool
+
+
+class CoordinationActionListResponse(SchemaModel):
+    items: list[CoordinationActionResponse]
 
 
 class ObligationListResponse(SchemaModel):

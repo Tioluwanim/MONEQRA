@@ -40,7 +40,7 @@ class FakeProviderAdapter:
         if parsed.hostname not in allowed_hosts:
             raise ValueError("provider host is not allow-listed")
         self._min_interval_seconds = min_interval_seconds
-        self._last_request = 0.0
+        self._last_request = float("-inf")
         self._results: dict[str, ProviderStatusResult] = {}
 
     def set_result(self, provider_reference: str, result: ProviderStatusResult) -> None:

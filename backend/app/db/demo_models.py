@@ -150,11 +150,62 @@ class Obligation(Base):
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False, default="open")
+    category: Mapped[str] = mapped_column(String, nullable=False, default="other", server_default="other")
+    counterparty: Mapped[str | None] = mapped_column(String, nullable=True)
     simulated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     __table_args__ = (
         CheckConstraint("amount_kobo > 0", name="ck_obligations_amount_positive"),
         CheckConstraint("length(currency) = 3", name="ck_obligations_currency_code"),
+    )
+
+
+class CoordinationAction(Base):
+    """A request to do something about an obligation (ask for time, split it, pay it first).
+
+    MONEQRA records and approves the request. A person carries it out outside MONEQRA.
+    """
+
+    __tablename__ = "coordination_actions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid_pk)
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organisations.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    obligation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("obligations.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    proposed_amount_kobo: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    requested_by: Mapped[str] = mapped_column(String, nullable=False)
+    decided_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    decision_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    outcome_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    simulated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('request_extension', 'split_payment', 'pay_from_confirmed_first')",
+            name="ck_coordination_actions_kind",
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected', 'completed')",
+            name="ck_coordination_actions_status",
+        ),
+        CheckConstraint(
+            "proposed_amount_kobo IS NULL OR proposed_amount_kobo > 0",
+            name="ck_coordination_actions_amount_positive",
+        ),
     )
 
 

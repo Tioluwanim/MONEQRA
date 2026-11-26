@@ -13,6 +13,7 @@ const steps = [
   { href: "/overview", label: "Overview", question: "What happened?" },
   { href: "/dependency", label: "Your routes", question: "Can we switch?" },
   { href: "/evidence", label: "Payments", question: "What is confirmed?" },
+  { href: "/bills", label: "Your bills", question: "Which bills are safe?" },
   { href: "/decisions", label: "Decision", question: "What should we do?" },
 ];
 
@@ -61,7 +62,7 @@ export function ProductShell({ children, next }: { children: ReactNode; next?: b
           </div>
         </div>
         <nav className="page-width pb-3" aria-label="Product screens">
-          <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <ol className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
             {steps.map((step, i) => {
               const current = pathname === step.href;
               return (
