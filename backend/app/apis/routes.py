@@ -16,6 +16,7 @@ from app.domain.recommendation import RecommendationContext, recommend
 from app.db.demo_models import (
     Approval,
     AuditEvent,
+    CoordinationAction,
     DependencyEdge,
     Incident,
     IncidentTransition,
@@ -32,6 +33,11 @@ from app.db.session import get_db
 from app.schemas import (
     AuditListResponse,
     AuditRecordResponse,
+    CoordinationActionCreate,
+    CoordinationActionListResponse,
+    CoordinationActionResponse,
+    CoordinationComplete,
+    CoordinationDecision,
     DependencyEdgeResponse,
     DependencyGraphResponse,
     DependencyNode,
@@ -41,6 +47,7 @@ from app.schemas import (
     IncidentListResponse,
     IncidentResponse,
     IncidentTransitionResponse,
+    ObligationCreate,
     ObligationListResponse,
     ObligationResponse,
     PaymentDetailResponse,
@@ -61,6 +68,7 @@ from app.security.audit import append_audit
 from app.security.simulation import require_simulation_mode
 from app.security.tenancy import org_scoped_query
 from app.services.approvals import decide_recommendation
+from app.services import coordination as coordination_service
 from app.services.financial import financial_impact
 from app.services.payments import ingest_payment_event
 from app.services.verification import verify_payment as verify_payment_service
@@ -419,10 +427,181 @@ def list_obligations(
                 due_at=r.due_at,
                 status=r.status,
                 simulated=r.simulated,
+                category=r.category,
+                counterparty=r.counterparty,
             )
             for r in rows
         ]
     )
+
+
+def _obligation_out(r: Obligation) -> ObligationResponse:
+    return ObligationResponse(
+        id=r.id, org_id=r.org_id, label=r.label, amount_kobo=r.amount_kobo, currency=r.currency,
+        due_at=r.due_at, status=r.status, simulated=r.simulated, category=r.category,
+        counterparty=r.counterparty,
+    )
+
+
+@router.post("/v1/obligations", response_model=ObligationResponse, status_code=201)
+def create_obligation(
+    body: ObligationCreate,
+    current: Annotated[Principal, Depends(principal)],
+    session: Annotated[Session, Depends(db_session)],
+) -> ObligationResponse:
+    try:
+        require_role(current, {Role.OPERATOR, Role.APPROVER, Role.ADMIN})
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    org_id = uuid.UUID(current.org_id)
+    org = session.get(Organisation, org_id)
+    row = Obligation(
+        id=uuid.uuid4(), org_id=org_id, label=body.label.strip(), amount_kobo=body.amount_kobo,
+        currency=org.opening_currency if org else "NGN", due_at=body.due_at, status="open",
+        category=body.category, counterparty=body.counterparty, simulated=settings.simulation_mode,
+    )
+    session.add(row)
+    session.flush()
+    append_audit(
+        session, principal_org_id=current.org_id, org_id=org_id, actor=current.user_id,
+        action="register_obligation", entity_type="obligation", entity_id=row.id,
+        payload={"amount_kobo": row.amount_kobo, "category": row.category, "due_at": row.due_at.isoformat()},
+        simulated=row.simulated,
+    )
+    session.commit()
+    return _obligation_out(row)
+
+
+@router.get("/v1/coverage")
+def coverage_route(
+    current: Annotated[Principal, Depends(principal)],
+    session: Annotated[Session, Depends(db_session)],
+    recovery_probability_bps: int = Query(default=6000, ge=0, le=10000),
+):
+    try:
+        report = coordination_service.coverage_report(
+            session, current, org_id=uuid.UUID(current.org_id),
+            recovery_probability_bps=recovery_probability_bps,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    return {
+        "recovery_probability_bps": report.assumed_recovery_bps,
+        "confirmed_funds_kobo": report.confirmed_funds.minor,
+        "assumed_unconfirmed_kobo": report.assumed_unconfirmed.minor,
+        "total_due_kobo": report.total_due.minor,
+        "covered_kobo": report.covered_total.minor,
+        "depends_on_unconfirmed_kobo": report.depends_total.minor,
+        "at_risk_kobo": report.at_risk_total.minor,
+        "simulated": True,
+        "limitations": [
+            "Unconfirmed money is an assumption, not a guarantee.",
+            "An at-risk obligation is assumed unpaid, so it uses none of the money.",
+            "Obligations are covered in due-date order; ties go to tax, payroll, loans, then the rest.",
+            "MONEQRA does not move money. Someone carries out any payment or request outside MONEQRA.",
+        ],
+        "items": [
+            {
+                "obligation_id": i.obligation.id,
+                "label": i.obligation.label,
+                "category": i.obligation.category,
+                "amount_kobo": i.obligation.amount.minor,
+                "due_at": i.obligation.due_at,
+                "status": i.status.value,
+                "from_confirmed_kobo": i.from_confirmed.minor,
+                "from_unconfirmed_kobo": i.from_unconfirmed.minor,
+                "shortfall_kobo": i.shortfall.minor,
+                "suggested_action": i.suggested_action.value if i.suggested_action else None,
+            }
+            for i in report.items
+        ],
+    }
+
+
+def _action_out(session: Session, a: CoordinationAction) -> CoordinationActionResponse:
+    ob = session.get(Obligation, a.obligation_id)
+    return CoordinationActionResponse(
+        id=a.id, obligation_id=a.obligation_id, obligation_label=ob.label if ob else "",
+        kind=a.kind, note=a.note, proposed_amount_kobo=a.proposed_amount_kobo, status=a.status,
+        requested_by=a.requested_by, decided_by=a.decided_by, decision_reason=a.decision_reason,
+        outcome_note=a.outcome_note, created_at=a.created_at, decided_at=a.decided_at,
+        simulated=a.simulated,
+    )
+
+
+def _coordination_errors(exc: Exception) -> HTTPException:
+    if isinstance(exc, PermissionError):
+        return HTTPException(status_code=403, detail=str(exc))
+    if isinstance(exc, LookupError):
+        return HTTPException(status_code=404, detail=str(exc))
+    return HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/v1/coordination-actions", response_model=CoordinationActionListResponse)
+def list_coordination_actions(
+    current: Annotated[Principal, Depends(principal)],
+    session: Annotated[Session, Depends(db_session)],
+) -> CoordinationActionListResponse:
+    try:
+        require_role(current, {Role.VIEWER, Role.OPERATOR, Role.APPROVER, Role.ADMIN})
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    rows = session.execute(
+        select(CoordinationAction)
+        .where(CoordinationAction.org_id == uuid.UUID(current.org_id))
+        .order_by(CoordinationAction.created_at.desc())
+    ).scalars().all()
+    return CoordinationActionListResponse(items=[_action_out(session, r) for r in rows])
+
+
+@router.post("/v1/coordination-actions", response_model=CoordinationActionResponse, status_code=201)
+def create_coordination_action(
+    body: CoordinationActionCreate,
+    current: Annotated[Principal, Depends(principal)],
+    session: Annotated[Session, Depends(db_session)],
+) -> CoordinationActionResponse:
+    try:
+        row = coordination_service.create_action(
+            session, current, org_id=uuid.UUID(current.org_id), obligation_id=body.obligation_id,
+            kind=body.kind, note=body.note, proposed_amount_kobo=body.proposed_amount_kobo,
+        )
+    except (PermissionError, LookupError, ValueError) as exc:
+        raise _coordination_errors(exc) from exc
+    return _action_out(session, row)
+
+
+@router.post("/v1/coordination-actions/{action_id}/decision", response_model=CoordinationActionResponse)
+def decide_coordination_action(
+    action_id: uuid.UUID,
+    body: CoordinationDecision,
+    current: Annotated[Principal, Depends(principal)],
+    session: Annotated[Session, Depends(db_session)],
+) -> CoordinationActionResponse:
+    try:
+        row = coordination_service.decide_action(
+            session, current, org_id=uuid.UUID(current.org_id), action_id=action_id,
+            decision=body.decision, reason=body.reason,
+        )
+    except (PermissionError, LookupError, ValueError) as exc:
+        raise _coordination_errors(exc) from exc
+    return _action_out(session, row)
+
+
+@router.post("/v1/coordination-actions/{action_id}/complete", response_model=CoordinationActionResponse)
+def complete_coordination_action(
+    action_id: uuid.UUID,
+    body: CoordinationComplete,
+    current: Annotated[Principal, Depends(principal)],
+    session: Annotated[Session, Depends(db_session)],
+) -> CoordinationActionResponse:
+    try:
+        row = coordination_service.complete_action(
+            session, current, org_id=uuid.UUID(current.org_id), action_id=action_id,
+            outcome_note=body.outcome_note,
+        )
+    except (PermissionError, LookupError, ValueError) as exc:
+        raise _coordination_errors(exc) from exc
+    return _action_out(session, row)
 
 
 @router.get("/v1/financial-impact")
@@ -710,6 +889,7 @@ def seed_simulator(
         session.query(Recommendation).filter(Recommendation.org_id == org_id).delete()
         session.query(PaymentEvent).filter(PaymentEvent.org_id == org_id).delete()
         session.query(Payment).filter(Payment.org_id == org_id).delete()
+        session.query(CoordinationAction).filter(CoordinationAction.org_id == org_id).delete()
         session.query(Obligation).filter(Obligation.org_id == org_id).delete()
         session.query(DependencyEdge).filter(DependencyEdge.org_id == org_id).delete()
         session.query(IncidentTransition).filter(IncidentTransition.org_id == org_id).delete()
@@ -756,11 +936,34 @@ def seed_simulator(
             label="Ade Stores supplier obligation",
             amount_kobo=110000000,
             currency="NGN",
-            due_at=datetime(2026, 11, 19, 17, 0, tzinfo=timezone.utc),
+            due_at=datetime(2026, 11, 19, 16, 0, tzinfo=timezone.utc),
             status="open",
+            category="supplier",
+            counterparty="Ade Stores supplier",
             simulated=True,
         )
     )
+    # Later obligations show the coordination view. They fall after the first deadline,
+    # so the headline impact figures (obligation_kobo, worst-case gap) are unchanged.
+    for label, kobo, day, category, who in (
+        ("Staff payroll", 65000000, 20, "payroll", "Staff"),
+        ("PAYE tax remittance", 18000000, 21, "tax", "State revenue service"),
+        ("Shop rent", 30000000, 25, "rent_utilities", "Landlord"),
+    ):
+        session.add(
+            Obligation(
+                id=uuid.uuid4(),
+                org_id=org_id,
+                label=label,
+                amount_kobo=kobo,
+                currency="NGN",
+                due_at=datetime(2026, 11, day, 16, 0, tzinfo=timezone.utc),
+                status="open",
+                category=category,
+                counterparty=who,
+                simulated=True,
+            )
+        )
     branch_edges = [
         (provider_a, processor_a),
         (provider_b, processor_b),
@@ -827,7 +1030,7 @@ def seed_simulator(
         session,
         current,
         org_id=org_id,
-        deadline=datetime(2026, 11, 19, 17, 0, tzinfo=timezone.utc),
+        deadline=datetime(2026, 11, 19, 16, 0, tzinfo=timezone.utc),
         recovery_probability_bps=6000,
     ).assumed_recovery
     recommendation_result = recommend(

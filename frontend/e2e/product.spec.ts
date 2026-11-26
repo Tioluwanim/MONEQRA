@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
-test("four product routes keep simulation label and expose shell", async ({ page }) => {
-  for (const route of ["/overview", "/dependency", "/evidence", "/decisions"]) {
+test("five product routes keep simulation label and expose shell", async ({ page }) => {
+  for (const route of ["/overview", "/dependency", "/evidence", "/bills", "/decisions"]) {
     await page.goto(route);
     await expect(page.getByText(/Simulation · demo data/i).first()).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Product screens" })).toBeVisible();
@@ -22,7 +22,7 @@ test("landing connects the story, demo and real workspace", async ({ page }) => 
   await expect(page.getByRole("link", { name: /Open the workspace/i }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: /Try the guided demo/i }).first()).toBeVisible();
 
-  for (const id of ["product", "how-it-works", "dependency", "financial", "decision", "governance"]) {
+  for (const id of ["product", "how-it-works", "dependency", "financial", "bills", "decision", "governance"]) {
     await expect(page.locator(`#${id}`)).toHaveCount(1);
   }
   await expect(page.getByText(/All data is simulated/i).first()).toBeVisible();
@@ -57,10 +57,27 @@ test("the guided demo runs its interactive branches and records approval", async
 });
 
 test("key routes have no horizontal overflow at the configured viewport", async ({ page }) => {
-  for (const route of ["/", "/demo", "/overview", "/dependency", "/evidence", "/decisions"]) {
+  for (const route of ["/", "/demo", "/overview", "/dependency", "/evidence", "/bills", "/decisions"]) {
     await page.goto(route);
     await page.waitForLoadState("networkidle");
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow, `${route} overflowed by ${overflow}px`).toBeLessThanOrEqual(2);
   }
+});
+
+test("bills flow: request, a different person approves, then it is marked done", async ({ page }) => {
+  await page.goto("/bills");
+  await page.getByRole("combobox", { name: /Demo role/i }).selectOption("operator");
+  const list = page.getByRole("list", { name: /bills in due-date order/i });
+  await expect(list.getByText("At risk").first()).toBeVisible();
+  await list.getByRole("button", { name: /Pay in two parts/i }).click();
+  await expect(page.getByText("Waiting for approval")).toBeVisible();
+
+  await page.getByRole("combobox", { name: /Demo role/i }).selectOption("approver");
+  await page.getByRole("button", { name: "Approve", exact: true }).click();
+  await expect(page.getByText("Approved, not done yet")).toBeVisible();
+
+  await page.getByLabel(/What happened when you did it/i).fill("Supplier agreed to part payment");
+  await page.getByRole("button", { name: /Mark as done/i }).click();
+  await expect(page.getByText("Outcome: Supplier agreed to part payment")).toBeVisible();
 });

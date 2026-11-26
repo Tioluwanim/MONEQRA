@@ -33,6 +33,49 @@ const transitions = [
   },
 ];
 
+const mockObligations = [
+  { id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd1", label: "Ade Stores supplier obligation", category: "supplier", counterparty: "Ade Stores supplier", amount_kobo: 110_000_000, due_at: "2026-11-19T17:00:00+01:00" },
+  { id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd2", label: "Staff payroll", category: "payroll", counterparty: "Staff", amount_kobo: 65_000_000, due_at: "2026-11-20T17:00:00+01:00" },
+  { id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd3", label: "PAYE tax remittance", category: "tax", counterparty: "State revenue service", amount_kobo: 18_000_000, due_at: "2026-11-21T17:00:00+01:00" },
+  { id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd4", label: "Shop rent", category: "rent_utilities", counterparty: "Landlord", amount_kobo: 30_000_000, due_at: "2026-11-25T17:00:00+01:00" },
+];
+
+const mockActions: Array<Record<string, unknown> & { id: string; obligation_id: string; kind: string; status: string; requested_by: string }> = [];
+
+function principalOf(request: Request) {
+  return (request.headers.get("authorization") ?? "").replace("Bearer ", "").replace(/-key$/, "");
+}
+
+/** Same rules as the backend coverage engine, in integer kobo. */
+function mockCoverage(bps: number) {
+  const confirmed = adeStoresFixture.opening_available_kobo + adeStoresFixture.settled_payments.amount_kobo;
+  const estimated = Math.floor((adeStoresFixture.unknown_payments.amount_kobo * bps) / 10_000);
+  let c = confirmed;
+  let e = estimated;
+  let covered = 0, depends = 0, risk = 0, total = 0;
+  const items = mockObligations.map((o) => {
+    total += o.amount_kobo;
+    const base = { obligation_id: o.id, label: o.label, category: o.category, amount_kobo: o.amount_kobo, due_at: o.due_at };
+    if (c >= o.amount_kobo) {
+      c -= o.amount_kobo; covered += o.amount_kobo;
+      return { ...base, status: "covered", from_confirmed_kobo: o.amount_kobo, from_unconfirmed_kobo: 0, shortfall_kobo: 0, suggested_action: null };
+    }
+    const negotiable = ["supplier", "other", "rent_utilities"].includes(o.category);
+    if (c + e >= o.amount_kobo) {
+      const useC = c; const useE = o.amount_kobo - c; c = 0; e -= useE; depends += o.amount_kobo;
+      return { ...base, status: "depends_on_unconfirmed", from_confirmed_kobo: useC, from_unconfirmed_kobo: useE, shortfall_kobo: 0, suggested_action: negotiable ? "split_payment" : "pay_from_confirmed_first" };
+    }
+    risk += o.amount_kobo;
+    return { ...base, status: "at_risk", from_confirmed_kobo: 0, from_unconfirmed_kobo: 0, shortfall_kobo: o.amount_kobo - (c + e), suggested_action: negotiable ? "request_extension" : "pay_from_confirmed_first" };
+  });
+  return {
+    recovery_probability_bps: bps, confirmed_funds_kobo: confirmed, assumed_unconfirmed_kobo: estimated,
+    total_due_kobo: total, covered_kobo: covered, depends_on_unconfirmed_kobo: depends, at_risk_kobo: risk,
+    limitations: ["Unconfirmed money is an assumption, not a guarantee.", "MONEQRA does not move money. Someone carries out any payment or request outside MONEQRA."],
+    simulated: true, items,
+  };
+}
+
 function liquidityReport(probabilityBps: number) {
   const position = calculateLiquidity(probabilityBps);
   const noRecovery = calculateLiquidity(0);
@@ -93,8 +136,52 @@ export const handlers = [
     }),
   ),
   http.get("*/v1/obligations", () =>
-    HttpResponse.json({ items: [{ id: "dddddddd-dddd-4ddd-8ddd-ddddddddddd1", org_id: orgId, label: "Ade Stores supplier obligation", amount_kobo: 110000000, currency: "NGN", due_at: "2026-11-19T17:00:00+01:00", status: "open", simulated: true }] }),
+    HttpResponse.json({ items: mockObligations.map((o) => ({ ...o, org_id: orgId, currency: "NGN", status: "open", simulated: true })) }),
   ),
+  http.get("*/v1/coverage", ({ request }) => {
+    const bps = clampBps(Number(new URL(request.url).searchParams.get("recovery_probability_bps") ?? 6000));
+    return HttpResponse.json(mockCoverage(bps));
+  }),
+  http.get("*/v1/coordination-actions", () => HttpResponse.json({ items: [...mockActions] })),
+  http.post("*/v1/coordination-actions", async ({ request }) => {
+    const principal = principalOf(request);
+    const body = (await request.json()) as { obligation_id: string; kind: string; note?: string; proposed_amount_kobo?: number };
+    const ob = mockObligations.find((o) => o.id === body.obligation_id);
+    if (principal === "demo-viewer") return HttpResponse.json({ detail: "role viewer is not permitted" }, { status: 403 });
+    if (!ob) return HttpResponse.json({ detail: "obligation not found" }, { status: 404 });
+    if (mockActions.some((a) => a.obligation_id === ob.id && a.kind === body.kind && ["pending", "approved"].includes(a.status))) {
+      return HttpResponse.json({ detail: "this obligation already has an open request of that kind" }, { status: 400 });
+    }
+    const action = {
+      id: `70000000-0000-4000-8000-${String(mockActions.length + 1).padStart(12, "0")}`,
+      obligation_id: ob.id, obligation_label: ob.label, kind: body.kind, note: body.note ?? "",
+      proposed_amount_kobo: body.proposed_amount_kobo ?? null, status: "pending", requested_by: principal,
+      decided_by: null, decision_reason: null, outcome_note: null,
+      created_at: "2026-11-19T16:40:00+01:00", decided_at: null, simulated: true,
+    };
+    mockActions.unshift(action);
+    return HttpResponse.json(action, { status: 201 });
+  }),
+  http.post("*/v1/coordination-actions/:id/decision", async ({ request, params }) => {
+    const principal = principalOf(request);
+    const body = (await request.json()) as { decision: string; reason?: string };
+    const action = mockActions.find((a) => a.id === params.id);
+    if (!action) return HttpResponse.json({ detail: "coordination action not found" }, { status: 404 });
+    if (principal !== "demo-approver" && principal !== "demo-admin") return HttpResponse.json({ detail: `role ${principal.replace("demo-", "")} is not permitted` }, { status: 403 });
+    if (action.requested_by === principal) return HttpResponse.json({ detail: "the person who made the request cannot approve it" }, { status: 403 });
+    if (action.status !== "pending") return HttpResponse.json({ detail: "this request has already been decided" }, { status: 400 });
+    if (body.decision === "reject" && !body.reason?.trim()) return HttpResponse.json({ detail: "reject decision requires a reason" }, { status: 400 });
+    Object.assign(action, { status: body.decision === "approve" ? "approved" : "rejected", decided_by: principal, decision_reason: body.reason || null, decided_at: "2026-11-19T16:45:00+01:00" });
+    return HttpResponse.json(action);
+  }),
+  http.post("*/v1/coordination-actions/:id/complete", async ({ params, request }) => {
+    const body = (await request.json()) as { outcome_note: string };
+    const action = mockActions.find((a) => a.id === params.id);
+    if (!action) return HttpResponse.json({ detail: "coordination action not found" }, { status: 404 });
+    if (action.status !== "approved") return HttpResponse.json({ detail: "only an approved request can be marked as done" }, { status: 400 });
+    Object.assign(action, { status: "completed", outcome_note: body.outcome_note });
+    return HttpResponse.json(action);
+  }),
   http.get("*/v1/incidents", () => HttpResponse.json({ items: [incident] })),
   http.get("*/v1/incidents/:id", () => HttpResponse.json({ ...incident, transitions })),
   http.get("*/v1/dependency-graph", () =>

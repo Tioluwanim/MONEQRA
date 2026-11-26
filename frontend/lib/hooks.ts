@@ -203,3 +203,94 @@ export function useDecisionMutation() {
     },
   });
 }
+
+export const coverageSchema = z.object({
+  recovery_probability_bps: z.number().int(),
+  confirmed_funds_kobo: z.number().int(),
+  assumed_unconfirmed_kobo: z.number().int(),
+  total_due_kobo: z.number().int(),
+  covered_kobo: z.number().int(),
+  depends_on_unconfirmed_kobo: z.number().int(),
+  at_risk_kobo: z.number().int(),
+  limitations: z.array(z.string()),
+  simulated: z.boolean(),
+  items: z.array(z.object({
+    obligation_id: z.string(),
+    label: z.string(),
+    category: z.string(),
+    amount_kobo: z.number().int(),
+    due_at: z.string(),
+    status: z.enum(["covered", "depends_on_unconfirmed", "at_risk"]),
+    from_confirmed_kobo: z.number().int(),
+    from_unconfirmed_kobo: z.number().int(),
+    shortfall_kobo: z.number().int(),
+    suggested_action: z.enum(["request_extension", "split_payment", "pay_from_confirmed_first"]).nullable(),
+  })),
+});
+export type CoverageItem = z.infer<typeof coverageSchema>["items"][number];
+export type ActionKind = NonNullable<CoverageItem["suggested_action"]>;
+
+export const actionSchema = z.object({
+  id: z.string(),
+  obligation_id: z.string(),
+  obligation_label: z.string(),
+  kind: z.enum(["request_extension", "split_payment", "pay_from_confirmed_first"]),
+  note: z.string(),
+  proposed_amount_kobo: z.number().int().nullable(),
+  status: z.enum(["pending", "approved", "rejected", "completed"]),
+  requested_by: z.string(),
+  decided_by: z.string().nullable(),
+  decision_reason: z.string().nullable(),
+  outcome_note: z.string().nullable(),
+  created_at: z.string(),
+  decided_at: z.string().nullable(),
+  simulated: z.boolean(),
+});
+export type CoordinationAction = z.infer<typeof actionSchema>;
+const actionListSchema = z.object({ items: z.array(actionSchema) });
+
+export function useCoverage(probabilityBps = 6000) {
+  const auth = useAuth();
+  return useQuery({
+    queryKey: ["coverage", auth.orgId, auth.role, probabilityBps],
+    queryFn: ({ signal }) =>
+      apiRequest(`/v1/coverage?recovery_probability_bps=${probabilityBps}`, coverageSchema, auth.credential, signal),
+  });
+}
+
+export function useCoordinationActions() {
+  const auth = useAuth();
+  return useQuery({
+    queryKey: ["coordination-actions", auth.orgId, auth.role],
+    queryFn: ({ signal }) => apiRequest("/v1/coordination-actions", actionListSchema, auth.credential, signal),
+  });
+}
+
+export function useCoordinationMutations() {
+  const auth = useAuth();
+  const client = useQueryClient();
+  const refresh = () => {
+    // Invalidate for every role: switching "Viewing as" must not show a stale list.
+    void client.invalidateQueries({ queryKey: ["coordination-actions"] });
+    void client.invalidateQueries({ queryKey: ["audit"] });
+  };
+  const post = (path: string, body: unknown) =>
+    apiRequest(path, actionSchema, auth.credential, undefined, { method: "POST", body: JSON.stringify(body) });
+  return {
+    create: useMutation({
+      mutationFn: (b: { obligation_id: string; kind: ActionKind; note?: string; proposed_amount_kobo?: number }) =>
+        post("/v1/coordination-actions", b),
+      onSuccess: refresh,
+    }),
+    decide: useMutation({
+      mutationFn: ({ id, decision, reason }: { id: string; decision: "approve" | "reject"; reason?: string }) =>
+        post(`/v1/coordination-actions/${id}/decision`, { decision, reason: reason ?? "" }),
+      onSuccess: refresh,
+    }),
+    complete: useMutation({
+      mutationFn: ({ id, outcome_note }: { id: string; outcome_note: string }) =>
+        post(`/v1/coordination-actions/${id}/complete`, { outcome_note }),
+      onSuccess: refresh,
+    }),
+  };
+}
