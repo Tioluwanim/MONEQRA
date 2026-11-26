@@ -15,6 +15,8 @@ from app.db import (  # noqa: F401
     Organisation,
     Payment,
     PaymentEvent,
+    PaymentImport,
+    PaymentImportRow,
     Recommendation,
 )
 

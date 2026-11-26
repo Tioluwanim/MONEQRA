@@ -249,6 +249,50 @@ export const actionSchema = z.object({
 export type CoordinationAction = z.infer<typeof actionSchema>;
 const actionListSchema = z.object({ items: z.array(actionSchema) });
 
+export const agentReviewSchema = z.object({
+  review_status: z.string(),
+  cash_position: z.record(z.string(), z.number()),
+  unresolved_transactions: z.array(z.record(z.string(), z.unknown())),
+  findings: z.array(z.object({
+    obligation_id: z.string(),
+    label: z.string(),
+    status: z.enum(["depends_on_unconfirmed", "at_risk"]),
+    priority: z.string(),
+    responsible_person: z.string().nullable(),
+    evidence: z.string(),
+  })),
+  proposals: z.array(z.object({
+    action_id: z.string(),
+    status: z.string(),
+    kind: z.enum(["request_extension", "split_payment", "pay_from_confirmed_first"]),
+    approval_required: z.boolean(),
+  })),
+  limitations: z.array(z.string()),
+});
+export type AgentReview = z.infer<typeof agentReviewSchema>;
+
+export function useAgentReview() {
+  const auth = useAuth();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ deadline, recoveryProbabilityBps = 6000 }: {
+      deadline: string;
+      recoveryProbabilityBps?: number;
+    }) =>
+      apiRequest("/v1/agent/review", agentReviewSchema, auth.credential, undefined, {
+        method: "POST",
+        body: JSON.stringify({
+          deadline,
+          recovery_probability_bps: recoveryProbabilityBps,
+        }),
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["coordination-actions"] });
+      void client.invalidateQueries({ queryKey: ["audit"] });
+    },
+  });
+}
+
 export function useCoverage(probabilityBps = 6000) {
   const auth = useAuth();
   return useQuery({

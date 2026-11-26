@@ -70,6 +70,30 @@ class PaymentEventInput(SchemaModel):
         return value
 
 
+class PaymentCSVImportInput(SchemaModel):
+    provider_node_id: UUID
+    filename: str = Field(min_length=1, max_length=255)
+    csv_text: str = Field(min_length=1)
+
+
+class PaymentImportRowResult(SchemaModel):
+    row_number: int
+    outcome: str
+    reason: str | None = None
+    payment_id: UUID | None = None
+
+
+class PaymentCSVImportResult(SchemaModel):
+    import_id: UUID
+    filename: str
+    sha256: str
+    row_count: int
+    imported_count: int
+    duplicate_count: int
+    rejected_count: int
+    rows: list[PaymentImportRowResult]
+
+
 class ProviderSignalInput(SchemaModel):
     provider_node_id: UUID | None = None
     provider_key: str | None = None
@@ -190,6 +214,8 @@ class ObligationResponse(SchemaModel):
     simulated: bool
     category: str = "other"
     counterparty: str | None = None
+    priority: str = "normal"
+    responsible_person: str | None = None
 
 
 class ObligationCreate(SchemaModel):
@@ -198,12 +224,21 @@ class ObligationCreate(SchemaModel):
     due_at: datetime
     category: str = "other"
     counterparty: str | None = Field(default=None, max_length=200)
+    priority: str = "normal"
+    responsible_person: str | None = Field(default=None, max_length=200)
 
     @field_validator("category")
     @classmethod
     def known_category(cls, value: str) -> str:
         if value not in {"tax", "payroll", "loan", "rent_utilities", "supplier", "other"}:
             raise ValueError("unknown category")
+        return value
+
+    @field_validator("priority")
+    @classmethod
+    def known_priority(cls, value: str) -> str:
+        if value not in {"critical", "high", "normal", "low"}:
+            raise ValueError("unknown priority")
         return value
 
     @field_validator("due_at")
@@ -295,6 +330,43 @@ class DemoScenariosResponse(SchemaModel):
     no_recovery: ScenarioReportResponse
     assumed_recovery: ScenarioReportResponse
     full_recovery: ScenarioReportResponse
+
+
+class AgentReviewRequest(SchemaModel):
+    deadline: datetime
+    recovery_probability_bps: StrictInt = Field(default=6000, ge=0, le=10000)
+
+    @field_validator("deadline")
+    @classmethod
+    def timezone_aware(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("deadline must be timezone-aware")
+        return value
+
+
+class AgentFinding(SchemaModel):
+    obligation_id: UUID
+    label: str
+    status: str
+    priority: str
+    responsible_person: str | None = None
+    evidence: str
+
+
+class AgentProposal(SchemaModel):
+    action_id: UUID
+    status: str
+    kind: str
+    approval_required: bool
+
+
+class AgentReviewResponse(SchemaModel):
+    review_status: str
+    cash_position: dict[str, Any]
+    unresolved_transactions: list[dict[str, Any]]
+    findings: list[AgentFinding]
+    proposals: list[AgentProposal]
+    limitations: tuple[str, ...]
 
 
 class ScenarioRequest(SchemaModel):

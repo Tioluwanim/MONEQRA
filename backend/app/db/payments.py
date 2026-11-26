@@ -205,3 +205,97 @@ def payment_event_reject_update(_mapper: object, _connection: object, _target: P
 @event.listens_for(PaymentEvent, "before_delete")
 def payment_event_reject_delete(_mapper: object, _connection: object, _target: PaymentEvent) -> None:
     raise RuntimeError("payment_events is append-only")
+
+
+class PaymentImport(Base):
+    __tablename__ = "payment_imports"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid_pk)
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organisations.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    provider_node_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("infra_nodes.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    filename: Mapped[str] = mapped_column(String, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    raw_content: Mapped[str] = mapped_column(Text, nullable=False)
+    row_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    imported_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    duplicate_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    rejected_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="completed")
+    simulated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('completed', 'rejected')",
+            name="ck_payment_imports_status",
+        ),
+        CheckConstraint(
+            "row_count >= 0 AND imported_count >= 0 "
+            "AND duplicate_count >= 0 AND rejected_count >= 0",
+            name="ck_payment_imports_counts",
+        ),
+        UniqueConstraint(
+            "org_id",
+            "provider_node_id",
+            "sha256",
+            name="uq_payment_imports_org_provider_sha",
+        ),
+    )
+
+
+class PaymentImportRow(Base):
+    __tablename__ = "payment_import_rows"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid_pk)
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organisations.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    import_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("payment_imports.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    row_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    raw_row: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    outcome: Mapped[str] = mapped_column(String, nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payment_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("payments.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "import_id",
+            "row_number",
+            name="uq_payment_import_rows_import_row",
+        ),
+        CheckConstraint(
+            "outcome IN ('imported', 'duplicate', 'rejected')",
+            name="ck_payment_import_rows_outcome",
+        ),
+    )
+
+
+@event.listens_for(PaymentImportRow, "before_update")
+def payment_import_row_reject_update(_mapper: object, _connection: object, _target: PaymentImportRow) -> None:
+    raise RuntimeError("payment import rows are append-only")

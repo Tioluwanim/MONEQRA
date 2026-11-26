@@ -1,6 +1,12 @@
 from app.db.base import Base
 from app.db.models import Organisation
-from app.db.payments import InfraNode, Payment, PaymentEvent
+from app.db.payments import (
+    InfraNode,
+    Payment,
+    PaymentEvent,
+    PaymentImport,
+    PaymentImportRow,
+)
 from app.db.demo_models import (
     Approval,
     AuditEvent,
@@ -22,6 +28,8 @@ __all__ = [
     "InfraNode",
     "Payment",
     "PaymentEvent",
+    "PaymentImport",
+    "PaymentImportRow",
     "DependencyEdge",
     "Incident",
     "IncidentTransition",

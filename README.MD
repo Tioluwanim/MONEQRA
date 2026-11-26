@@ -658,6 +658,8 @@ moneqra/
 │   │   │   ├── dependency
 │   │   │   └── recommendation
 │   │   ├── services/          domain plus database
+│   │   ├── prediction/        replaceable interfaces and statistical baselines
+│   │   ├── agent/             bounded review tools and approval coordination
 │   │   ├── adapters/          provider contract and implementations
 │   │   ├── db/                models, session, seed
 │   │   ├── security/          webhook verification, tenancy, audit
@@ -683,6 +685,9 @@ moneqra/
 | Scenario comparison | Yes | | Calibrated recovery models |
 | Bill coverage against confirmed money | Yes | Obligations and balances are seeded | Open Banking and accounting integrations |
 | Coordination requests with separate approval | Yes | Simulated | Notifications and supplier-facing messages |
+| Agentic financial review | Yes | Deterministic tools and seeded scenarios | Scheduled reviews and replaceable LLM explanations |
+| Statistical settlement baseline | Interface only | Baseline unavailable without 20 real settlements | Calibrated and monitored model |
+| Deep-learning settlement prediction | Excluded | None; demo data is never used for training | Only after representative real data proves a benefit |
 | Executing a payment or contacting a supplier | Excluded | | Excluded |
 | Evidence-backed recommendation | Yes | | Learned from real incident history |
 | Human approval and audit log | Yes | | Approval workflows and notifications |

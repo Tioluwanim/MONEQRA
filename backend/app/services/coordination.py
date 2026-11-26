@@ -48,7 +48,15 @@ def coverage_report(
     opening = Money(org.opening_available_kobo, org.opening_currency)
     return compute_coverage(
         [
-            CoverageObligation(str(r.id), r.label, r.category, Money(r.amount_kobo, r.currency), _aware(r.due_at))
+            CoverageObligation(
+                str(r.id),
+                r.label,
+                r.category,
+                Money(r.amount_kobo, r.currency),
+                _aware(r.due_at),
+                r.priority,
+                r.responsible_person,
+            )
             for r in rows
         ],
         opening + buckets.settled_by_deadline,

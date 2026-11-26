@@ -37,6 +37,24 @@ def test_register_obligation_role_and_validation(api):
     assert api.post("/v1/obligations", headers=H["operator"], json={**body, "due_at": "2026-11-27T12:00:00"}).status_code == 422
     assert api.post("/v1/obligations", headers=H["operator"], json={**body, "amount_kobo": 0}).status_code == 422
     assert api.post("/v1/obligations", headers=H["operator"], json={**body, "category": "crypto"}).status_code == 422
+    configured = api.post(
+        "/v1/obligations",
+        headers=H["operator"],
+        json={
+            **body,
+            "label": "Critical tax",
+            "priority": "critical",
+            "responsible_person": "Finance Lead",
+        },
+    )
+    assert configured.status_code == 201
+    assert configured.json()["priority"] == "critical"
+    assert configured.json()["responsible_person"] == "Finance Lead"
+    assert api.post(
+        "/v1/obligations",
+        headers=H["operator"],
+        json={**body, "priority": "urgent"},
+    ).status_code == 422
 
 
 def first_id(api, label="Ade Stores supplier obligation"):
@@ -88,6 +106,33 @@ def test_split_needs_smaller_amount(api):
     assert api.post("/v1/coordination-actions", headers=H["operator"], json=bad).status_code == 400
     assert api.post("/v1/coordination-actions", headers=H["operator"], json={**bad, "proposed_amount_kobo": 99000000}).status_code == 201
     assert api.post("/v1/coordination-actions", headers=H["operator"], json={"obligation_id": oid, "kind": "request_extension", "proposed_amount_kobo": 5}).status_code == 400
+
+
+def test_bounded_agent_review_only_proposes_and_requires_approval(api):
+    seed(api)
+    deadline = "2026-11-26T17:00:00+00:00"
+    forbidden = api.post(
+        "/v1/agent/review",
+        headers=H["viewer"],
+        json={"deadline": deadline, "recovery_probability_bps": 6000},
+    )
+    assert forbidden.status_code == 403
+
+    review = api.post(
+        "/v1/agent/review",
+        headers=H["operator"],
+        json={"deadline": deadline, "recovery_probability_bps": 6000},
+    )
+    assert review.status_code == 200
+    body = review.json()
+    assert body["review_status"] == "completed"
+    assert body["findings"]
+    assert body["cash_position"]["available_funds_kobo"] == 99000000
+    assert all(p["approval_required"] is True for p in body["proposals"])
+
+    listed = api.get("/v1/coordination-actions", headers=H["viewer"]).json()["items"]
+    assert len(listed) == len(body["proposals"])
+    assert all(a["status"] == "pending" for a in listed)
 
 
 def test_reseed_clears_actions(api):

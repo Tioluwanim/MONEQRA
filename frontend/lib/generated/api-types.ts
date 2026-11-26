@@ -81,6 +81,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/imports/payments/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import and preserve a provider payment CSV */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PaymentCSVImportInput"];
+                };
+            };
+            responses: {
+                /** @description Import processed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PaymentCSVImportResult"];
+                    };
+                };
+                400: components["responses"]["Error"];
+                404: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/events/signals": {
         parameters: {
             query?: never;
@@ -386,7 +428,73 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /** Register a financial obligation */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ObligationCreate"];
+                };
+            };
+            responses: {
+                /** @description Obligation registered */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Obligation"];
+                    };
+                };
+                default: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/agent/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run a bounded financial review and draft approval proposals */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AgentReviewRequest"];
+                };
+            };
+            responses: {
+                /** @description Deterministic review and approval-gated proposals */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AgentReviewResponse"];
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -680,6 +788,31 @@ export interface components {
             /** @default true */
             simulated: boolean;
         };
+        PaymentCSVImportInput: {
+            /** Format: uuid */
+            provider_node_id: string;
+            filename: string;
+            csv_text: string;
+        };
+        PaymentImportRowResult: {
+            row_number: number;
+            /** @enum {string} */
+            outcome: "imported" | "duplicate" | "rejected";
+            reason?: string | null;
+            /** Format: uuid */
+            payment_id?: string | null;
+        };
+        PaymentCSVImportResult: {
+            /** Format: uuid */
+            import_id: string;
+            filename: string;
+            sha256: string;
+            row_count: number;
+            imported_count: number;
+            duplicate_count: number;
+            rejected_count: number;
+            rows: components["schemas"]["PaymentImportRowResult"][];
+        };
         ProviderSignalInput: {
             /** Format: uuid */
             provider_node_id: string;
@@ -794,10 +927,68 @@ export interface components {
             /** Format: date-time */
             due_at: string;
             status: string;
+            /** @enum {string} */
+            category?: "tax" | "payroll" | "loan" | "rent_utilities" | "supplier" | "other";
+            counterparty?: string | null;
+            /** @enum {string} */
+            priority?: "critical" | "high" | "normal" | "low";
+            responsible_person?: string | null;
             simulated: boolean;
+        };
+        ObligationCreate: {
+            label: string;
+            amount_kobo: number;
+            /** Format: date-time */
+            due_at: string;
+            /**
+             * @default other
+             * @enum {string}
+             */
+            category: "tax" | "payroll" | "loan" | "rent_utilities" | "supplier" | "other";
+            counterparty?: string | null;
+            /**
+             * @default normal
+             * @enum {string}
+             */
+            priority: "critical" | "high" | "normal" | "low";
+            responsible_person?: string | null;
         };
         ObligationList: {
             items: components["schemas"]["Obligation"][];
+        };
+        AgentReviewRequest: {
+            /** Format: date-time */
+            deadline: string;
+            /** @default 6000 */
+            recovery_probability_bps: number;
+        };
+        AgentFinding: {
+            /** Format: uuid */
+            obligation_id: string;
+            label: string;
+            status: string;
+            priority: string;
+            responsible_person?: string | null;
+            evidence: string;
+        };
+        AgentProposal: {
+            /** Format: uuid */
+            action_id: string;
+            status: string;
+            kind: string;
+            approval_required: boolean;
+        };
+        AgentReviewResponse: {
+            review_status: string;
+            cash_position: {
+                [key: string]: unknown;
+            };
+            unresolved_transactions: {
+                [key: string]: unknown;
+            }[];
+            findings: components["schemas"]["AgentFinding"][];
+            proposals: components["schemas"]["AgentProposal"][];
+            limitations: string[];
         };
         LiquidityReport: {
             available_funds_kobo: number;

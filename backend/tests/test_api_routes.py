@@ -61,6 +61,78 @@ def test_fixed_demo_users_and_role_gate(api):
     }
 
 
+def test_csv_import_preserves_source_and_deduplicates(api):
+    operator = {"Authorization": "Bearer demo-operator-key"}
+    seed = api.post(
+        "/v1/simulator/seed",
+        headers=operator,
+        json={"branch": "independent", "reset": True},
+    )
+    assert seed.status_code == 200
+    graph = api.get("/v1/dependency-graph", headers=operator)
+    provider = next(n for n in graph.json()["nodes"] if n["kind"] == "provider")
+
+    csv_text = (
+        "provider_event_id,provider_reference,amount,currency,occurred_at,status,state\n"
+        "csv-evt-1,CSV-REF-1,125.50,NGN,2026-11-26T10:00:00+00:00,successful,settled\n"
+        "csv-evt-2,CSV-REF-2,1000.00,NGN,2026-11-26T10:01:00+00:00,processing,pending\n"
+    )
+    body = {
+        "provider_node_id": provider["id"],
+        "filename": "provider-export.csv",
+        "csv_text": csv_text,
+    }
+    first = api.post("/v1/imports/payments/csv", headers=operator, json=body)
+    assert first.status_code == 200
+    result = first.json()
+    assert result["row_count"] == 2
+    assert result["imported_count"] == 2
+    assert result["duplicate_count"] == 0
+    assert result["rejected_count"] == 0
+
+    payments = api.get("/v1/payments", headers=operator).json()["items"]
+    imported = {p["provider_reference"]: p for p in payments}
+    assert imported["CSV-REF-1"]["amount_kobo"] == 12550
+    assert imported["CSV-REF-1"]["state"] == "settled"
+    assert imported["CSV-REF-2"]["amount_kobo"] == 100000
+    assert imported["CSV-REF-2"]["state"] == "pending"
+
+    second = api.post("/v1/imports/payments/csv", headers=operator, json=body)
+    assert second.status_code == 200
+    assert second.json()["import_id"] == result["import_id"]
+    assert second.json()["rows"] == []
+
+
+def test_csv_import_rejects_bad_rows_and_preserves_them(api):
+    operator = {"Authorization": "Bearer demo-operator-key"}
+    seed = api.post(
+        "/v1/simulator/seed",
+        headers=operator,
+        json={"branch": "independent", "reset": True},
+    )
+    assert seed.status_code == 200
+    provider = next(
+        n for n in api.get("/v1/dependency-graph", headers=operator).json()["nodes"]
+        if n["kind"] == "provider"
+    )
+    result = api.post(
+        "/v1/imports/payments/csv",
+        headers=operator,
+        json={
+            "provider_node_id": provider["id"],
+            "filename": "bad.csv",
+            "csv_text": (
+                "provider_event_id,provider_reference,amount_kobo,currency,occurred_at,status\n"
+                "bad-1,REF-BAD,0,NGN,2026-11-26T10:00:00+00:00,paid\n"
+                "bad-2,REF-BAD2,100,NGN,2026-11-26T10:00:00Z,unknown\n"
+            ),
+        },
+    )
+    assert result.status_code == 200
+    assert result.json()["rejected_count"] == 1
+    assert result.json()["imported_count"] == 1
+
+
 def test_seed_endpoint_is_simulation_only_and_seeds_exact_numbers(api):
     operator = {"Authorization": "Bearer demo-operator-key"}
     seed = api.post(

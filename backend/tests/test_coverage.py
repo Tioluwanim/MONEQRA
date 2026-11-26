@@ -65,6 +65,21 @@ def test_ties_break_by_category_priority():
     assert r.items[1].status is CoverageStatus.AT_RISK
 
 
+def test_ties_use_explicit_business_priority():
+    same = datetime(2026, 11, 19, 17, tzinfo=timezone.utc)
+    supplier = CoverageObligation(
+        "supplier", "Supplier", "supplier", Money(60), same,
+        "low", "Finance",
+    )
+    payroll = CoverageObligation(
+        "payroll", "Payroll", "payroll", Money(60), same,
+        "critical", "People",
+    )
+    r = compute_coverage([supplier, payroll], Money(60), Money(0), 0)
+    assert [i.obligation.id for i in r.items] == ["payroll", "supplier"]
+    assert r.items[0].obligation.responsible_person == "People"
+
+
 def test_floor_never_overstates_unconfirmed():
     r = compute_coverage([], Money(0), Money(999), 3333)
     assert r.assumed_unconfirmed.minor == 332

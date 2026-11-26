@@ -152,11 +152,17 @@ class Obligation(Base):
     status: Mapped[str] = mapped_column(String, nullable=False, default="open")
     category: Mapped[str] = mapped_column(String, nullable=False, default="other", server_default="other")
     counterparty: Mapped[str | None] = mapped_column(String, nullable=True)
+    priority: Mapped[str] = mapped_column(String, nullable=False, default="normal", server_default="normal")
+    responsible_person: Mapped[str | None] = mapped_column(String, nullable=True)
     simulated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     __table_args__ = (
         CheckConstraint("amount_kobo > 0", name="ck_obligations_amount_positive"),
         CheckConstraint("length(currency) = 3", name="ck_obligations_currency_code"),
+        CheckConstraint(
+            "priority IN ('critical', 'high', 'normal', 'low')",
+            name="ck_obligations_priority",
+        ),
     )
 
 

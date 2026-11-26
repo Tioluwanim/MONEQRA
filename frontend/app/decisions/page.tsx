@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { z } from "zod";
 import { CheckCircle2 } from "lucide-react";
-import { useFinancialImpact, useRecommendations, useAudit, useDecisionMutation } from "@/lib/hooks";
+import { useFinancialImpact, useRecommendations, useAudit, useDecisionMutation, useAgentReview } from "@/lib/hooks";
 import { useAuth, type DemoRole } from "@/lib/auth";
 import { apiRequest } from "@/lib/api-client";
 import { ProductShell, PageTitle } from "@/components/product/shell";
@@ -22,6 +22,7 @@ export default function DecisionsPage() {
   const recommendations = useRecommendations();
   const audit = useAudit();
   const decision = useDecisionMutation();
+  const agentReview = useAgentReview();
   const [done, setDone] = useState<"approve" | "reject" | null>(null);
   const [simulationMessage, setSimulationMessage] = useState("");
 
@@ -67,6 +68,45 @@ export default function DecisionsPage() {
             )}
           </>
         )}
+      </section>
+
+      <section aria-labelledby="agent-heading" className="mb-10">
+        <h2 id="agent-heading" className="mb-3 text-xl">Run a financial review</h2>
+        <div className="card card-pad">
+          <p className="text-sm text-[var(--text-muted)]">
+            The bounded agent reads the cash position, unresolved payments and obligation coverage. It may draft coordination requests, but cannot approve or execute them.
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm mt-4"
+            disabled={agentReview.isPending || auth.role === "viewer"}
+            onClick={() => agentReview.mutate({
+              deadline: "2026-11-19T17:00:00+01:00",
+              recoveryProbabilityBps: probability,
+            })}
+          >
+            {agentReview.isPending ? "Running review..." : "Run review"}
+          </button>
+          {auth.role === "viewer" && (
+            <p className="mt-2 text-sm text-[var(--text-muted)]">Switch to operator or approver access to run the review.</p>
+          )}
+          {agentReview.isError && (
+            <ErrorState title="The review could not run" detail={agentReview.error.message} />
+          )}
+          {agentReview.data && (
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div>
+                <strong>{agentReview.data.findings.length}</strong> obligation finding(s)
+              </div>
+              <div>
+                <strong>{agentReview.data.proposals.length}</strong> draft proposal(s) awaiting approval
+              </div>
+              <p className="text-sm text-[var(--text-muted)] md:col-span-2">
+                {agentReview.data.limitations.join(" ")}
+              </p>
+            </div>
+          )}
+        </div>
       </section>
 
       <section aria-labelledby="sc-heading" className="mb-10">

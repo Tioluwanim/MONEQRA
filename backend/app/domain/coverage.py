@@ -24,6 +24,13 @@ CATEGORY_RANK = {
 }
 NEGOTIABLE_CATEGORIES = frozenset({"supplier", "other", "rent_utilities"})
 CATEGORIES = tuple(CATEGORY_RANK)
+PRIORITY_RANK = {
+    "critical": 1,
+    "high": 2,
+    "normal": 3,
+    "low": 4,
+}
+PRIORITIES = tuple(PRIORITY_RANK)
 
 
 class CoverageStatus(str, Enum):
@@ -45,6 +52,8 @@ class CoverageObligation:
     category: str
     amount: Money
     due_at: datetime
+    priority: str = "normal"
+    responsible_person: str | None = None
 
 
 @dataclass(frozen=True)
@@ -98,7 +107,12 @@ def compute_coverage(
 
     ordered = sorted(
         obligations,
-        key=lambda o: (o.due_at, CATEGORY_RANK.get(o.category, CATEGORY_RANK["other"]), o.id),
+        key=lambda o: (
+            o.due_at,
+            PRIORITY_RANK.get(o.priority, PRIORITY_RANK["normal"]),
+            CATEGORY_RANK.get(o.category, CATEGORY_RANK["other"]),
+            o.id,
+        ),
     )
     for o in ordered:
         if o.amount.currency != currency:

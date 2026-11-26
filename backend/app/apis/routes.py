@@ -31,6 +31,8 @@ from app.db.models import Organisation
 from app.db.payments import InfraNode, Payment, PaymentEvent
 from app.db.session import get_db
 from app.schemas import (
+    AgentReviewRequest,
+    AgentReviewResponse,
     AuditListResponse,
     AuditRecordResponse,
     CoordinationActionCreate,
@@ -51,6 +53,8 @@ from app.schemas import (
     ObligationListResponse,
     ObligationResponse,
     PaymentDetailResponse,
+    PaymentCSVImportInput,
+    PaymentCSVImportResult,
     PaymentEventInput,
     PaymentListResponse,
     PaymentResponse,
@@ -69,8 +73,10 @@ from app.security.simulation import require_simulation_mode
 from app.security.tenancy import org_scoped_query
 from app.services.approvals import decide_recommendation
 from app.services import coordination as coordination_service
+from app.services.agent import run_financial_review
 from app.services.financial import financial_impact
 from app.services.payments import ingest_payment_event
+from app.services.payment_import import import_payment_csv
 from app.services.verification import verify_payment as verify_payment_service
 
 
@@ -137,6 +143,31 @@ def ingest_payment(
         simulated=body.simulated,
     )
     return EventIngestionResult(**result)
+
+
+@router.post("/v1/imports/payments/csv", response_model=PaymentCSVImportResult)
+def import_payments_csv(
+    body: PaymentCSVImportInput,
+    current: Annotated[Principal, Depends(principal)],
+    session: Annotated[Session, Depends(db_session)],
+) -> PaymentCSVImportResult:
+    try:
+        result = import_payment_csv(
+            session,
+            current,
+            org_id=uuid.UUID(current.org_id),
+            provider_node_id=body.provider_node_id,
+            filename=body.filename,
+            csv_text=body.csv_text,
+            simulated=settings.simulation_mode,
+        )
+        return PaymentCSVImportResult(**result)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/v1/events/signals", response_model=EventIngestionResult)
@@ -429,6 +460,8 @@ def list_obligations(
                 simulated=r.simulated,
                 category=r.category,
                 counterparty=r.counterparty,
+                priority=r.priority,
+                responsible_person=r.responsible_person,
             )
             for r in rows
         ]
@@ -440,6 +473,7 @@ def _obligation_out(r: Obligation) -> ObligationResponse:
         id=r.id, org_id=r.org_id, label=r.label, amount_kobo=r.amount_kobo, currency=r.currency,
         due_at=r.due_at, status=r.status, simulated=r.simulated, category=r.category,
         counterparty=r.counterparty,
+        priority=r.priority, responsible_person=r.responsible_person,
     )
 
 
@@ -459,13 +493,20 @@ def create_obligation(
         id=uuid.uuid4(), org_id=org_id, label=body.label.strip(), amount_kobo=body.amount_kobo,
         currency=org.opening_currency if org else "NGN", due_at=body.due_at, status="open",
         category=body.category, counterparty=body.counterparty, simulated=settings.simulation_mode,
+        priority=body.priority, responsible_person=body.responsible_person,
     )
     session.add(row)
     session.flush()
     append_audit(
         session, principal_org_id=current.org_id, org_id=org_id, actor=current.user_id,
         action="register_obligation", entity_type="obligation", entity_id=row.id,
-        payload={"amount_kobo": row.amount_kobo, "category": row.category, "due_at": row.due_at.isoformat()},
+        payload={
+            "amount_kobo": row.amount_kobo,
+            "category": row.category,
+            "priority": row.priority,
+            "responsible_person": row.responsible_person,
+            "due_at": row.due_at.isoformat(),
+        },
         simulated=row.simulated,
     )
     session.commit()
@@ -497,7 +538,7 @@ def coverage_route(
         "limitations": [
             "Unconfirmed money is an assumption, not a guarantee.",
             "An at-risk obligation is assumed unpaid, so it uses none of the money.",
-            "Obligations are covered in due-date order; ties go to tax, payroll, loans, then the rest.",
+            "Obligations are covered in due-date order; ties use business priority, then category priority.",
             "MONEQRA does not move money. Someone carries out any payment or request outside MONEQRA.",
         ],
         "items": [
@@ -505,6 +546,8 @@ def coverage_route(
                 "obligation_id": i.obligation.id,
                 "label": i.obligation.label,
                 "category": i.obligation.category,
+                "priority": i.obligation.priority,
+                "responsible_person": i.obligation.responsible_person,
                 "amount_kobo": i.obligation.amount.minor,
                 "due_at": i.obligation.due_at,
                 "status": i.status.value,
@@ -602,6 +645,27 @@ def complete_coordination_action(
     except (PermissionError, LookupError, ValueError) as exc:
         raise _coordination_errors(exc) from exc
     return _action_out(session, row)
+
+
+@router.post("/v1/agent/review", response_model=AgentReviewResponse)
+def run_agent_review(
+    body: AgentReviewRequest,
+    current: Annotated[Principal, Depends(principal)],
+    session: Annotated[Session, Depends(db_session)],
+) -> AgentReviewResponse:
+    try:
+        result = run_financial_review(
+            session,
+            current,
+            org_id=uuid.UUID(current.org_id),
+            deadline=body.deadline,
+            recovery_probability_bps=body.recovery_probability_bps,
+        )
+        return AgentReviewResponse(**result)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/v1/financial-impact")

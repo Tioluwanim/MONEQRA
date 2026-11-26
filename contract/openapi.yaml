@@ -40,6 +40,27 @@ paths:
                 $ref: "#/components/schemas/EventIngestionResult"
         default:
           $ref: "#/components/responses/Error"
+  /v1/imports/payments/csv:
+    post:
+      summary: Import and preserve a provider payment CSV
+      x-roles: [operator, approver, admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentCSVImportInput"
+      responses:
+        "200":
+          description: Import processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentCSVImportResult"
+        "400":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
   /v1/events/signals:
     post:
       summary: Ingest a provider health signal
@@ -162,6 +183,43 @@ paths:
                 $ref: "#/components/schemas/ObligationList"
         default:
           $ref: "#/components/responses/Error"
+    post:
+      summary: Register a financial obligation
+      x-roles: [operator, approver, admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ObligationCreate"
+      responses:
+        "201":
+          description: Obligation registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Obligation"
+        default:
+          $ref: "#/components/responses/Error"
+  /v1/agent/review:
+    post:
+      summary: Run a bounded financial review and draft approval proposals
+      x-roles: [operator, approver, admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentReviewRequest"
+      responses:
+        "200":
+          description: Deterministic review and approval-gated proposals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentReviewResponse"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /v1/financial-impact:
     get:
       summary: Calculate liquidity impact for a deadline
@@ -410,6 +468,60 @@ components:
         simulated:
           type: boolean
           default: true
+    PaymentCSVImportInput:
+      type: object
+      required: [provider_node_id, filename, csv_text]
+      properties:
+        provider_node_id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        csv_text:
+          type: string
+          minLength: 1
+    PaymentImportRowResult:
+      type: object
+      required: [row_number, outcome]
+      properties:
+        row_number:
+          type: integer
+          minimum: 2
+        outcome:
+          type: string
+          enum: [imported, duplicate, rejected]
+        reason:
+          type: string
+          nullable: true
+        payment_id:
+          type: string
+          format: uuid
+          nullable: true
+    PaymentCSVImportResult:
+      type: object
+      required: [import_id, filename, sha256, row_count, imported_count, duplicate_count, rejected_count, rows]
+      properties:
+        import_id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        sha256:
+          type: string
+        row_count:
+          type: integer
+        imported_count:
+          type: integer
+        duplicate_count:
+          type: integer
+        rejected_count:
+          type: integer
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentImportRowResult"
     ProviderSignalInput:
       type: object
       required: [provider_node_id, provider_event_id, occurred_at, status, raw_payload]
@@ -630,8 +742,50 @@ components:
           format: date-time
         status:
           type: string
+        category:
+          type: string
+          enum: [tax, payroll, loan, rent_utilities, supplier, other]
+        counterparty:
+          type: string
+          nullable: true
+        priority:
+          type: string
+          enum: [critical, high, normal, low]
+        responsible_person:
+          type: string
+          nullable: true
         simulated:
           type: boolean
+    ObligationCreate:
+      type: object
+      required: [label, amount_kobo, due_at]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 200
+        amount_kobo:
+          type: integer
+          minimum: 1
+        due_at:
+          type: string
+          format: date-time
+        category:
+          type: string
+          enum: [tax, payroll, loan, rent_utilities, supplier, other]
+          default: other
+        counterparty:
+          type: string
+          maxLength: 200
+          nullable: true
+        priority:
+          type: string
+          enum: [critical, high, normal, low]
+          default: normal
+        responsible_person:
+          type: string
+          maxLength: 200
+          nullable: true
     ObligationList:
       type: object
       required: [items]
@@ -640,6 +794,75 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Obligation"
+    AgentReviewRequest:
+      type: object
+      required: [deadline]
+      properties:
+        deadline:
+          type: string
+          format: date-time
+        recovery_probability_bps:
+          type: integer
+          minimum: 0
+          maximum: 10000
+          default: 6000
+    AgentFinding:
+      type: object
+      required: [obligation_id, label, status, priority, evidence]
+      properties:
+        obligation_id:
+          type: string
+          format: uuid
+        label:
+          type: string
+        status:
+          type: string
+        priority:
+          type: string
+        responsible_person:
+          type: string
+          nullable: true
+        evidence:
+          type: string
+    AgentProposal:
+      type: object
+      required: [action_id, status, kind, approval_required]
+      properties:
+        action_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        kind:
+          type: string
+        approval_required:
+          type: boolean
+    AgentReviewResponse:
+      type: object
+      required: [review_status, cash_position, unresolved_transactions, findings, proposals, limitations]
+      properties:
+        review_status:
+          type: string
+        cash_position:
+          type: object
+          additionalProperties: true
+        unresolved_transactions:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        findings:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentFinding"
+        proposals:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentProposal"
+        limitations:
+          type: array
+          items:
+            type: string
     LiquidityReport:
       type: object
       required:
