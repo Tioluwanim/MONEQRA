@@ -5,6 +5,8 @@
 
 MONEQRA helps payment-intensive businesses understand and manage the financial consequences of payment infrastructure disruptions. When a provider slows down or fails, it works out which payments are unresolved, which obligations are at risk, how much money is exposed, and what the safest response is, with the evidence behind every conclusion.
 
+It also answers the question that follows: **which of your bills are safe to pay?** MONEQRA lines up salaries, tax, rent and suppliers by due date against money that is actually confirmed, flags anything that depends on payments not yet confirmed, and turns an at-risk bill into a request that a second person must approve (see [Cash certainty and coordination](#cash-certainty-and-coordination)).
+
 > **Status: hackathon prototype in active development (Team SYNFORGE).**
 > All figures, businesses and events in this repository are **illustrative simulation data**. MONEQRA never moves money, and simulated events are never presented as live provider data.
 
@@ -59,6 +61,8 @@ Switching provider is not always an escape. If two providers rely on the same up
 | **Quantify** | Calculate deadline-aware liquidity exposure in integer kobo, with every input and assumption shown. |
 | **Simulate** | Compare responses: wait, route new payments elsewhere, request an extension. |
 | **Recommend** | Present an evidence-backed recommendation with its limitations. |
+| **Cash certainty** | Check every upcoming bill against confirmed money: covered, covered only if waiting payments arrive, or at risk. |
+| **Coordinate** | Turn an at-risk bill into a request (ask for more time, pay in two parts, pay from confirmed money first) that a different person approves and someone carries out. |
 | **Control** | Require human approval for consequential actions and record every decision in an audit log. |
 
 ### Operating principle
@@ -417,6 +421,22 @@ flowchart TD
 
 Actions that affect existing transactions are kept separate from actions that only affect future ones.
 
+### Cash certainty and coordination
+
+The incident view answers "what is my exposure at one deadline". The bills view extends that to everything that is due.
+
+**Coverage rules** (`backend/app/domain/coverage.py`, pure integer kobo):
+
+1. Confirmed money is the opening balance plus payments already settled. Unresolved payments are never counted as confirmed.
+2. Assumed unconfirmed money is `floor(unresolved x recovery_bps / 10000)`. The recovery rate is a stated assumption, never a prediction.
+3. Open obligations are walked in due-date order. Ties go to tax, then payroll, loans, rent and utilities, suppliers, other.
+4. Each obligation is **covered** (confirmed money pays it), **depends on unconfirmed** (covered only if assumed money arrives) or **at risk** (not covered even then). An at-risk obligation is assumed unpaid, so it uses none of the money and later obligations can still be covered.
+5. Totals always add up: covered + depends + at risk = total due.
+
+**Suggested actions** are rule-based: negotiable categories (supplier, rent and utilities, other) get "ask for more time" or "pay in two parts"; tax, payroll and loans get "pay from confirmed money first".
+
+**Coordination workflow:** an operator, approver or admin requests an action; a *different* approver approves or declines it (declining needs a reason); someone carries it out outside MONEQRA and records the outcome. The requester can never approve their own request. Every step is written to the hash-chained audit log. MONEQRA never pays, contacts a supplier or moves money.
+
 ## 10. Decision and approval workflow
 
 ```mermaid
@@ -566,7 +586,11 @@ REST, JSON, versioned under `/v1`. All endpoints are scoped to the caller's orga
 | `POST /v1/payments/{id}/verify` | Ask the provider to confirm an unknown payment (read-only, safe to repeat) |
 | `GET /v1/incidents` and `GET /v1/incidents/{id}` | Incidents, timeline and evidence |
 | `GET /v1/dependency-graph` | Nodes, edges, known and unknown links, affected nodes |
-| `GET /v1/obligations` | Upcoming obligations |
+| `GET /v1/obligations` and `POST /v1/obligations` | List obligations, and register one with a category (operator and above) |
+| `GET /v1/coverage` | Every open obligation against confirmed money for a stated recovery assumption, with a suggested action |
+| `GET /v1/coordination-actions` and `POST /v1/coordination-actions` | List and request coordination actions (ask for more time, split, pay first) |
+| `POST /v1/coordination-actions/{id}/decision` | Approve or decline (approver role, never the requester) |
+| `POST /v1/coordination-actions/{id}/complete` | Record the outcome of an approved action done outside MONEQRA |
 | `GET /v1/financial-impact` | Liquidity report for a deadline |
 | `POST /v1/scenarios` | Run a scenario with stated assumptions |
 | `GET /v1/recommendations` | Recommendations with evidence and limitations |
@@ -578,14 +602,15 @@ REST, JSON, versioned under `/v1`. All endpoints are scoped to the caller's orga
 
 ## 13. Application screens
 
-Four screens, centred on the incident and decision workflow. Simulation mode is always visibly marked, and confirmed, pending and estimated values are always visually distinct.
+Five steps, centred on the incident, the money and the decision. Simulation mode is always visibly marked, and confirmed, pending and estimated values are always visually distinct.
 
 | Screen | Shows |
 |---|---|
 | **1. Overview and incident** | Infrastructure status, active incidents, timeline, detection evidence, failure and latency changes, severity, unresolved value, available funds, exposure |
 | **2. Dependency graph** | Providers, partners, known dependencies, affected nodes, unknown links |
 | **3. Evidence and impact** | Transactions with status, verification evidence, settlement status, last provider check and retry eligibility; opening funds, settled inflows, unresolved inflows, obligations, shortfalls |
-| **4. Scenarios, recommendation and audit** | Option comparison, the recommendation with reasoning, assumptions and limits, approve or reject controls, decision history |
+| **4. Your bills** | Every upcoming bill against confirmed money (covered, only if waiting payments arrive, at risk), a recovery guess selector, suggested actions, and the request, approve and mark-done workflow |
+| **5. Scenarios, recommendation and audit** | Option comparison, the recommendation with reasoning, assumptions and limits, approve or reject controls, decision history |
 
 ## 14. Security and governance
 
@@ -629,6 +654,7 @@ moneqra/
 │   │   │   ├── payment_states
 │   │   │   ├── incident_states
 │   │   │   ├── financial_engine
+│   │   │   ├── coverage
 │   │   │   ├── dependency
 │   │   │   └── recommendation
 │   │   ├── services/          domain plus database
@@ -655,6 +681,9 @@ moneqra/
 | Approved provider-side reversals or retries | Excluded | | Future, with approval and idempotency |
 | Deadline-aware liquidity exposure | Yes | Balances and obligations are seeded | Open Banking and accounting integrations |
 | Scenario comparison | Yes | | Calibrated recovery models |
+| Bill coverage against confirmed money | Yes | Obligations and balances are seeded | Open Banking and accounting integrations |
+| Coordination requests with separate approval | Yes | Simulated | Notifications and supplier-facing messages |
+| Executing a payment or contacting a supplier | Excluded | | Excluded |
 | Evidence-backed recommendation | Yes | | Learned from real incident history |
 | Human approval and audit log | Yes | | Approval workflows and notifications |
 | Automated money movement | Excluded | | Excluded |
