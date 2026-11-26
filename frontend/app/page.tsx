@@ -16,7 +16,8 @@ const steps = [
   { n: 1, title: "See what happened", body: "A plain summary of the problem and when it started." },
   { n: 2, title: "Check your routes", body: "Find out if switching to another provider would actually help." },
   { n: 3, title: "Count what is confirmed", body: "Only money in your account is counted. The rest waits." },
-  { n: 4, title: "Decide", body: "We suggest an action. A person approves it. Everything is recorded." },
+  { n: 4, title: "Check your bills", body: "See which bills your confirmed money covers and which are at risk." },
+  { n: 5, title: "Decide", body: "We suggest an action. A person approves it. Everything is recorded." },
 ];
 
 export default function Home() {
@@ -63,8 +64,8 @@ export default function Home() {
         </section>
 
         <section id="how-it-works" className="page-width py-16" aria-labelledby="how-heading">
-          <SectionHeading id="how-heading" kicker="How it works" title="Four simple steps from alarm to decision" />
-          <ol className="mt-8 grid gap-4 md:grid-cols-4">
+          <SectionHeading id="how-heading" kicker="How it works" title="Five simple steps from alarm to decision" />
+          <ol className="mt-8 grid gap-4 md:grid-cols-3 lg:grid-cols-5">
             {steps.map((s) => (
               <li key={s.n} className="card card-pad"><span aria-hidden="true" className="grid size-9 place-items-center rounded-full bg-[var(--brand)] font-bold text-white">{s.n}</span><h3 className="mt-3 text-lg">{s.title}</h3><p className="mt-1 text-[var(--text-muted)]">{s.body}</p></li>
             ))}
@@ -109,6 +110,12 @@ export default function Home() {
 
         <section id="bills" className="page-width py-16" aria-labelledby="bills-heading">
           <SectionHeading id="bills-heading" kicker="Beyond the incident" title="Know which bills are safe to pay" lead="MONEQRA lines up salaries, tax, rent and suppliers by due date against money you actually have. Bills that depend on unconfirmed payments are flagged, and asking for more time becomes a request a second person approves." />
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <div className="card card-pad"><StatusPill tone="good">Covered</StatusPill><p className="mt-3 text-[var(--text-muted)]">Money already in your account pays it.</p></div>
+            <div className="card card-pad"><StatusPill tone="unsure">Only if waiting payments arrive</StatusPill><p className="mt-3 text-[var(--text-muted)]">It depends on payments the provider has not confirmed, so it is labelled as an estimate.</p></div>
+            <div className="card card-pad"><StatusPill tone="bad">At risk</StatusPill><p className="mt-3 text-[var(--text-muted)]">Short even if the guess is right. We suggest asking for more time, and a different person approves the request.</p></div>
+          </div>
+          <div className="mt-6"><ActionLink href="/bills" variant="secondary">See the bills screen <ArrowRight aria-hidden="true" className="size-4" /></ActionLink></div>
         </section>
 
         <section id="decision" className="border-y border-[var(--border)] bg-[var(--surface)] py-16" aria-labelledby="dec-heading">
