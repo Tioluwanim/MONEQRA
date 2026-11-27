@@ -39,7 +39,7 @@ export function ProductShell({ children, next }: { children: ReactNode; next?: b
   return (
     <div className="min-h-screen bg-[var(--canvas)] text-[var(--text)]">
       <a href="#main" className="skip-link">Skip to content</a>
-      <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur">
+      <header className="z-30 lg:sticky lg:top-0 border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur">
         <div className="page-width flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3">
           <Link href="/" aria-label="MONEQRA home"><Logo /></Link>
           <div className="flex flex-wrap items-center gap-3">
